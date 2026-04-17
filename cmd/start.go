@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"safe-claude/profile"
 	"safe-claude/project"
 
 	"charm.land/huh/v2"
@@ -22,9 +21,7 @@ func startSession() error {
 		return fmt.Errorf("could not determine working directory: %w", err)
 	}
 
-	configDir := filepath.Join(homeDir, ".safe-claude")
-	projectsPath := filepath.Join(configDir, "projects.json")
-	profilesPath := filepath.Join(configDir, "profiles.json")
+	projectsPath := filepath.Join(homeDir, ".safe-claude", "projects.json")
 
 	// Ensure project exists
 	proj, created, err := project.GetOrCreate(projectsPath, cwd)
@@ -37,7 +34,7 @@ func startSession() error {
 
 	// Check if profile is set
 	if proj.ProfileID == "" {
-		profiles, err := profile.Load(profilesPath)
+		profiles, err := profileService.List()
 		if err != nil {
 			return err
 		}
@@ -50,7 +47,7 @@ func startSession() error {
 		// Build select options using shared display formatting
 		options := make([]huh.Option[string], len(profiles))
 		for i, p := range profiles {
-			options[i] = huh.NewOption(profile.FormatOption(p), p.ID)
+			options[i] = huh.NewOption(profileService.FormatOption(p), p.ID)
 		}
 
 		var selectedID string
@@ -76,17 +73,12 @@ func startSession() error {
 	}
 
 	// Find the profile name for display
-	profiles, err := profile.Load(profilesPath)
+	p, err := profileService.GetByID(proj.ProfileID)
 	if err != nil {
-		return err
-	}
-	for _, p := range profiles {
-		if p.ID == proj.ProfileID {
-			fmt.Printf("Starting session in %s with profile %q (node %s)\n", cwd, p.Name, p.NodeVersion)
-			return nil
-		}
+		fmt.Printf("Starting session in %s (profile %s not found)\n", cwd, proj.ProfileID)
+		return nil
 	}
 
-	fmt.Printf("Starting session in %s (profile %s not found)\n", cwd, proj.ProfileID)
+	fmt.Printf("Starting session in %s with profile %q (node %s)\n", cwd, p.Name, p.NodeVersion)
 	return nil
 }

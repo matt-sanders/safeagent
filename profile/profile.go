@@ -9,13 +9,23 @@ import (
 	"os"
 )
 
+// Profile represents a named environment configuration.
 type Profile struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
 	NodeVersion string `json:"node_version"`
 }
 
-// generateID returns an 8-character random hex string.
+// Store handles profile persistence to a JSON file.
+type Store struct {
+	filePath string
+}
+
+// NewStore creates a Store that reads/writes profiles at filePath.
+func NewStore(filePath string) *Store {
+	return &Store{filePath: filePath}
+}
+
 func generateID() string {
 	b := make([]byte, 4)
 	if _, err := rand.Read(b); err != nil {
@@ -24,10 +34,10 @@ func generateID() string {
 	return hex.EncodeToString(b)
 }
 
-// Load reads profiles from the JSON file at filePath.
+// Load reads all profiles from the file.
 // Returns an empty slice if the file does not exist.
-func Load(filePath string) ([]Profile, error) {
-	data, err := os.ReadFile(filePath)
+func (s *Store) Load() ([]Profile, error) {
+	data, err := os.ReadFile(s.filePath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return []Profile{}, nil
@@ -43,17 +53,17 @@ func Load(filePath string) ([]Profile, error) {
 	return profiles, nil
 }
 
-// Add appends a profile to the JSON file at filePath.
+// Add appends a profile, generating an ID automatically.
 // Returns an error if a profile with the same name already exists.
-func Add(filePath string, p Profile) error {
-	profiles, err := Load(filePath)
+func (s *Store) Add(p Profile) (Profile, error) {
+	profiles, err := s.Load()
 	if err != nil {
-		return err
+		return Profile{}, err
 	}
 
 	for _, existing := range profiles {
 		if existing.Name == p.Name {
-			return fmt.Errorf("profile %q already exists", p.Name)
+			return Profile{}, fmt.Errorf("profile %q already exists", p.Name)
 		}
 	}
 
@@ -62,12 +72,12 @@ func Add(filePath string, p Profile) error {
 
 	data, err := json.MarshalIndent(profiles, "", "  ")
 	if err != nil {
-		return fmt.Errorf("failed to marshal profiles: %w", err)
+		return Profile{}, fmt.Errorf("failed to marshal profiles: %w", err)
 	}
 
-	if err := os.WriteFile(filePath, data, 0600); err != nil {
-		return fmt.Errorf("failed to write profiles file: %w", err)
+	if err := os.WriteFile(s.filePath, data, 0600); err != nil {
+		return Profile{}, fmt.Errorf("failed to write profiles file: %w", err)
 	}
 
-	return nil
+	return p, nil
 }

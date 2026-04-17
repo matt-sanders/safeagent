@@ -2,10 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
-
-	"safe-claude/profile"
 
 	"github.com/spf13/cobra"
 )
@@ -14,13 +10,7 @@ var profilesCmd = &cobra.Command{
 	Use:   "profiles",
 	Short: "Manage profiles",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		homeDir, err := os.UserHomeDir()
-		if err != nil {
-			return fmt.Errorf("could not determine home directory: %w", err)
-		}
-		profilesPath := filepath.Join(homeDir, ".safe-claude", "profiles.json")
-
-		profiles, err := profile.Load(profilesPath)
+		profiles, err := profileService.List()
 		if err != nil {
 			return err
 		}
@@ -31,7 +21,7 @@ var profilesCmd = &cobra.Command{
 		}
 
 		for i, p := range profiles {
-			fmt.Print(profile.FormatOption(p))
+			fmt.Print(profileService.FormatOption(p))
 			if i < len(profiles)-1 {
 				fmt.Println()
 			}
