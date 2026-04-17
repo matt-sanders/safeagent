@@ -3,28 +3,18 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"path/filepath"
-
-	"safe-claude/project"
 
 	"charm.land/huh/v2"
 )
 
 func startSession() error {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return fmt.Errorf("could not determine home directory: %w", err)
-	}
-
 	cwd, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("could not determine working directory: %w", err)
 	}
 
-	projectsPath := filepath.Join(homeDir, ".safe-claude", "projects.json")
-
 	// Ensure project exists
-	proj, created, err := project.GetOrCreate(projectsPath, cwd)
+	proj, created, err := projectService.GetOrCreate(cwd)
 	if err != nil {
 		return err
 	}
@@ -64,7 +54,7 @@ func startSession() error {
 			return fmt.Errorf("profile selection cancelled: %w", err)
 		}
 
-		if err := project.SetProfile(projectsPath, cwd, selectedID); err != nil {
+		if err := projectService.SetProfile(cwd, selectedID); err != nil {
 			return err
 		}
 

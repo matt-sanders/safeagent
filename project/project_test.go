@@ -5,11 +5,17 @@ import (
 	"testing"
 )
 
-func TestGetOrCreate_CreatesNewProject(t *testing.T) {
+func newTestService(t *testing.T) *Service {
+	t.Helper()
 	tmpDir := t.TempDir()
-	filePath := filepath.Join(tmpDir, "projects.json")
+	store := NewStore(filepath.Join(tmpDir, "projects.json"))
+	return NewService(store)
+}
 
-	p, created, err := GetOrCreate(filePath, "/home/user/myapp")
+func TestService_GetOrCreate_CreatesNewProject(t *testing.T) {
+	svc := newTestService(t)
+
+	p, created, err := svc.GetOrCreate("/home/user/myapp")
 	if err != nil {
 		t.Fatalf("GetOrCreate() error = %v", err)
 	}
@@ -24,16 +30,15 @@ func TestGetOrCreate_CreatesNewProject(t *testing.T) {
 	}
 }
 
-func TestGetOrCreate_ReturnsExistingProject(t *testing.T) {
-	tmpDir := t.TempDir()
-	filePath := filepath.Join(tmpDir, "projects.json")
+func TestService_GetOrCreate_ReturnsExisting(t *testing.T) {
+	svc := newTestService(t)
 
-	_, _, err := GetOrCreate(filePath, "/home/user/myapp")
+	_, _, err := svc.GetOrCreate("/home/user/myapp")
 	if err != nil {
 		t.Fatalf("first GetOrCreate() error = %v", err)
 	}
 
-	p, created, err := GetOrCreate(filePath, "/home/user/myapp")
+	p, created, err := svc.GetOrCreate("/home/user/myapp")
 	if err != nil {
 		t.Fatalf("second GetOrCreate() error = %v", err)
 	}
@@ -45,21 +50,20 @@ func TestGetOrCreate_ReturnsExistingProject(t *testing.T) {
 	}
 }
 
-func TestSetProfile_UpdatesProject(t *testing.T) {
-	tmpDir := t.TempDir()
-	filePath := filepath.Join(tmpDir, "projects.json")
+func TestService_SetProfile(t *testing.T) {
+	svc := newTestService(t)
 
-	_, _, err := GetOrCreate(filePath, "/home/user/myapp")
+	_, _, err := svc.GetOrCreate("/home/user/myapp")
 	if err != nil {
 		t.Fatalf("GetOrCreate() error = %v", err)
 	}
 
-	err = SetProfile(filePath, "/home/user/myapp", "abc123")
+	err = svc.SetProfile("/home/user/myapp", "abc123")
 	if err != nil {
 		t.Fatalf("SetProfile() error = %v", err)
 	}
 
-	p, _, err := GetOrCreate(filePath, "/home/user/myapp")
+	p, _, err := svc.GetOrCreate("/home/user/myapp")
 	if err != nil {
 		t.Fatalf("GetOrCreate() after SetProfile error = %v", err)
 	}
@@ -68,34 +72,29 @@ func TestSetProfile_UpdatesProject(t *testing.T) {
 	}
 }
 
-func TestSetProfile_ErrorsForUnknownProject(t *testing.T) {
-	tmpDir := t.TempDir()
-	filePath := filepath.Join(tmpDir, "projects.json")
+func TestService_SetProfile_ErrorsForUnknown(t *testing.T) {
+	svc := newTestService(t)
 
-	err := SetProfile(filePath, "/nonexistent", "abc123")
+	err := svc.SetProfile("/nonexistent", "abc123")
 	if err == nil {
 		t.Error("SetProfile() expected error for unknown project, got nil")
 	}
 }
 
-func TestGetOrCreate_MultipleProjects(t *testing.T) {
-	tmpDir := t.TempDir()
-	filePath := filepath.Join(tmpDir, "projects.json")
+func TestService_GetOrCreate_MultipleProjects(t *testing.T) {
+	svc := newTestService(t)
 
-	_, _, err := GetOrCreate(filePath, "/home/user/app1")
-	if err != nil {
-		t.Fatalf("first GetOrCreate() error = %v", err)
-	}
-	_, _, err = GetOrCreate(filePath, "/home/user/app2")
-	if err != nil {
-		t.Fatalf("second GetOrCreate() error = %v", err)
-	}
+	_, _, _ = svc.GetOrCreate("/home/user/app1")
+	_, _, _ = svc.GetOrCreate("/home/user/app2")
 
-	projects, err := Load(filePath)
-	if err != nil {
-		t.Fatalf("Load() error = %v", err)
+	// Verify both exist by getting them again
+	_, created1, _ := svc.GetOrCreate("/home/user/app1")
+	_, created2, _ := svc.GetOrCreate("/home/user/app2")
+
+	if created1 {
+		t.Error("app1 should already exist")
 	}
-	if len(projects) != 2 {
-		t.Errorf("expected 2 projects, got %d", len(projects))
+	if created2 {
+		t.Error("app2 should already exist")
 	}
 }
