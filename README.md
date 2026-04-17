@@ -21,13 +21,13 @@ safe-claude
 #### Change/set the profile
 
 ```sh
-safe-claude use-profile profile-name
+safe-claude use-profile
 ```
 
 #### Exclude directory or file
 
 ```sh
-safe-claude exclude dirname
+safe-claude exclude
 ```
 
 ## Profiles

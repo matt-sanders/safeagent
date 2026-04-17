@@ -1,18 +1,79 @@
-// cmd/use_profile.go
 package cmd
 
 import (
 	"fmt"
+	"os"
 
+	"charm.land/huh/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/spf13/cobra"
 )
 
+var (
+	useProfileDetailStyle = lipgloss.NewStyle().Faint(true)
+)
+
 var useProfileCmd = &cobra.Command{
-	Use:   "use-profile [profile-name]",
+	Use:   "use-profile",
 	Short: "Change or set the profile for the current project",
-	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("you called use-profile")
+	Args:  cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cwd, err := os.Getwd()
+		if err != nil {
+			return fmt.Errorf("could not determine working directory: %w", err)
+		}
+
+		// Ensure project exists
+		proj, _, err := projectService.GetOrCreate(cwd)
+		if err != nil {
+			return err
+		}
+
+		profiles, err := profileService.List()
+		if err != nil {
+			return err
+		}
+
+		if len(profiles) == 0 {
+			fmt.Println("No profiles available. Create one first with: safe-claude profiles create")
+			return nil
+		}
+
+		options := make([]huh.Option[string], len(profiles))
+		for i, p := range profiles {
+			prefix := "  "
+			if p.ID == proj.ProfileID {
+				prefix = "* "
+			}
+			label := fmt.Sprintf("%s%s %s", prefix, p.Name, useProfileDetailStyle.Render("node "+p.NodeVersion))
+			options[i] = huh.NewOption(label, p.ID)
+		}
+
+		var selectedID string
+		form := huh.NewForm(
+			huh.NewGroup(
+				huh.NewSelect[string]().
+					Title("Select a profile").
+					Options(options...).
+					Value(&selectedID),
+			),
+		)
+
+		if err := form.Run(); err != nil {
+			return nil
+		}
+
+		if err := projectService.SetProfile(cwd, selectedID); err != nil {
+			return err
+		}
+
+		p, err := profileService.GetByID(selectedID)
+		if err != nil {
+			return err
+		}
+
+		fmt.Printf("Now using profile %q (node %s)\n", p.Name, p.NodeVersion)
+		return nil
 	},
 }
 
