@@ -7,13 +7,7 @@ import (
 
 	"safe-claude/profile"
 
-	"charm.land/lipgloss/v2"
 	"github.com/spf13/cobra"
-)
-
-var (
-	nameStyle   = lipgloss.NewStyle().Bold(true)
-	detailStyle = lipgloss.NewStyle().Faint(true)
 )
 
 var profilesCmd = &cobra.Command{
@@ -37,12 +31,12 @@ var profilesCmd = &cobra.Command{
 		}
 
 		for i, p := range profiles {
-			fmt.Println(nameStyle.Render(p.Name))
-			fmt.Println(detailStyle.Render(fmt.Sprintf("  id: %s  node: %s", p.ID, p.NodeVersion)))
+			fmt.Print(profile.FormatOption(p))
 			if i < len(profiles)-1 {
 				fmt.Println()
 			}
 		}
+		fmt.Println()
 
 		return nil
 	},

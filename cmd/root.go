@@ -23,8 +23,8 @@ var rootCmd = &cobra.Command{
 		}
 		return nil
 	},
-	Run: func(cmd *cobra.Command, args []string) {
-		startSession()
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return startSession()
 	},
 }
 
