@@ -19,3 +19,25 @@ func (s *Service) GetOrCreate(path string) (Project, bool, error) {
 func (s *Service) SetProfile(path string, profileID string) error {
 	return s.store.SetProfile(path, profileID)
 }
+
+// GetExclusions returns the exclusions for the project at the given path.
+func (s *Service) GetExclusions(path string) ([]string, error) {
+	proj, _, err := s.store.GetOrCreate(path)
+	if err != nil {
+		return nil, err
+	}
+	if proj.Exclusions == nil {
+		return []string{}, nil
+	}
+	return proj.Exclusions, nil
+}
+
+// AddExclusion adds an exclusion to the project at the given path.
+func (s *Service) AddExclusion(path string, exclusion string) error {
+	return s.store.AddExclusion(path, exclusion)
+}
+
+// RemoveExclusion removes an exclusion from the project at the given path.
+func (s *Service) RemoveExclusion(path string, exclusion string) error {
+	return s.store.RemoveExclusion(path, exclusion)
+}

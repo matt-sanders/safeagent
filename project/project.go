@@ -9,8 +9,9 @@ import (
 
 // Project represents a directory-based project configuration.
 type Project struct {
-	Path      string `json:"path"`
-	ProfileID string `json:"profile_id,omitempty"`
+	Path       string   `json:"path"`
+	ProfileID  string   `json:"profile_id,omitempty"`
+	Exclusions []string `json:"exclusions,omitempty"`
 }
 
 // Store handles project persistence to a JSON file.
@@ -90,6 +91,52 @@ func (s *Store) SetProfile(path string, profileID string) error {
 		if p.Path == path {
 			projects[i].ProfileID = profileID
 			return s.save(projects)
+		}
+	}
+
+	return fmt.Errorf("project %q not found", path)
+}
+
+// AddExclusion adds an exclusion to the project at the given path.
+// Returns an error if the exclusion already exists.
+func (s *Store) AddExclusion(path string, exclusion string) error {
+	projects, err := s.Load()
+	if err != nil {
+		return err
+	}
+
+	for i, p := range projects {
+		if p.Path == path {
+			for _, e := range p.Exclusions {
+				if e == exclusion {
+					return fmt.Errorf("exclusion %q already exists", exclusion)
+				}
+			}
+			projects[i].Exclusions = append(projects[i].Exclusions, exclusion)
+			return s.save(projects)
+		}
+	}
+
+	return fmt.Errorf("project %q not found", path)
+}
+
+// RemoveExclusion removes an exclusion from the project at the given path.
+// Returns an error if the exclusion does not exist.
+func (s *Store) RemoveExclusion(path string, exclusion string) error {
+	projects, err := s.Load()
+	if err != nil {
+		return err
+	}
+
+	for i, p := range projects {
+		if p.Path == path {
+			for j, e := range p.Exclusions {
+				if e == exclusion {
+					projects[i].Exclusions = append(p.Exclusions[:j], p.Exclusions[j+1:]...)
+					return s.save(projects)
+				}
+			}
+			return fmt.Errorf("exclusion %q not found", exclusion)
 		}
 	}
 

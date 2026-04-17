@@ -98,3 +98,79 @@ func TestService_GetOrCreate_MultipleProjects(t *testing.T) {
 		t.Error("app2 should already exist")
 	}
 }
+
+func TestService_AddExclusion(t *testing.T) {
+	svc := newTestService(t)
+	svc.GetOrCreate("/home/user/myapp")
+
+	err := svc.AddExclusion("/home/user/myapp", "node_modules")
+	if err != nil {
+		t.Fatalf("AddExclusion() error = %v", err)
+	}
+
+	exclusions, err := svc.GetExclusions("/home/user/myapp")
+	if err != nil {
+		t.Fatalf("GetExclusions() error = %v", err)
+	}
+	if len(exclusions) != 1 {
+		t.Fatalf("expected 1 exclusion, got %d", len(exclusions))
+	}
+	if exclusions[0] != "node_modules" {
+		t.Errorf("exclusion = %q, want %q", exclusions[0], "node_modules")
+	}
+}
+
+func TestService_AddExclusion_RejectsDuplicate(t *testing.T) {
+	svc := newTestService(t)
+	svc.GetOrCreate("/home/user/myapp")
+
+	svc.AddExclusion("/home/user/myapp", "node_modules")
+	err := svc.AddExclusion("/home/user/myapp", "node_modules")
+	if err == nil {
+		t.Error("AddExclusion() expected error for duplicate, got nil")
+	}
+}
+
+func TestService_RemoveExclusion(t *testing.T) {
+	svc := newTestService(t)
+	svc.GetOrCreate("/home/user/myapp")
+
+	svc.AddExclusion("/home/user/myapp", "node_modules")
+	svc.AddExclusion("/home/user/myapp", ".env")
+
+	err := svc.RemoveExclusion("/home/user/myapp", "node_modules")
+	if err != nil {
+		t.Fatalf("RemoveExclusion() error = %v", err)
+	}
+
+	exclusions, _ := svc.GetExclusions("/home/user/myapp")
+	if len(exclusions) != 1 {
+		t.Fatalf("expected 1 exclusion, got %d", len(exclusions))
+	}
+	if exclusions[0] != ".env" {
+		t.Errorf("remaining exclusion = %q, want %q", exclusions[0], ".env")
+	}
+}
+
+func TestService_RemoveExclusion_ErrorsForMissing(t *testing.T) {
+	svc := newTestService(t)
+	svc.GetOrCreate("/home/user/myapp")
+
+	err := svc.RemoveExclusion("/home/user/myapp", "nonexistent")
+	if err == nil {
+		t.Error("RemoveExclusion() expected error for missing exclusion, got nil")
+	}
+}
+
+func TestService_GetExclusions_EmptyByDefault(t *testing.T) {
+	svc := newTestService(t)
+	svc.GetOrCreate("/home/user/myapp")
+
+	exclusions, err := svc.GetExclusions("/home/user/myapp")
+	if err != nil {
+		t.Fatalf("GetExclusions() error = %v", err)
+	}
+	if len(exclusions) != 0 {
+		t.Errorf("expected 0 exclusions, got %d", len(exclusions))
+	}
+}
