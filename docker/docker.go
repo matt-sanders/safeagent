@@ -125,6 +125,17 @@ func (s *Service) RemoveContainer(containerID string) error {
 	return nil
 }
 
+// RemoveImage removes a Docker image. Returns an error if removal fails.
+func (s *Service) RemoveImage(imageName string) error {
+	cmd := exec.Command("docker", "rmi", imageName)
+	cmd.Stdout = nil
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to remove image %s: %w", imageName, err)
+	}
+	return nil
+}
+
 // StartContainer starts a container in detached mode.
 // Does nothing if the container is already running.
 func (s *Service) StartContainer(containerID string) error {

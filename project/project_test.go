@@ -211,3 +211,31 @@ func TestService_SetContainerID_ErrorsForUnknown(t *testing.T) {
 		t.Error("SetContainerID() expected error for unknown project, got nil")
 	}
 }
+
+func TestService_ListByProfileID(t *testing.T) {
+	svc := newTestService(t)
+
+	svc.GetOrCreate("/home/user/app1")
+	svc.GetOrCreate("/home/user/app2")
+	svc.GetOrCreate("/home/user/app3")
+
+	svc.SetProfile("/home/user/app1", "profile-a")
+	svc.SetProfile("/home/user/app2", "profile-a")
+	svc.SetProfile("/home/user/app3", "profile-b")
+
+	projects, err := svc.ListByProfileID("profile-a")
+	if err != nil {
+		t.Fatalf("ListByProfileID() error = %v", err)
+	}
+	if len(projects) != 2 {
+		t.Fatalf("expected 2 projects, got %d", len(projects))
+	}
+
+	projects, err = svc.ListByProfileID("nonexistent")
+	if err != nil {
+		t.Fatalf("ListByProfileID() error = %v", err)
+	}
+	if len(projects) != 0 {
+		t.Errorf("expected 0 projects, got %d", len(projects))
+	}
+}

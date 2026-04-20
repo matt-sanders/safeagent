@@ -46,3 +46,18 @@ func (s *Service) RemoveExclusion(path string, exclusion string) error {
 func (s *Service) SetContainerID(path string, containerID string) error {
 	return s.store.SetContainerID(path, containerID)
 }
+
+// ListByProfileID returns all projects using the given profile ID.
+func (s *Service) ListByProfileID(profileID string) ([]Project, error) {
+	projects, err := s.store.Load()
+	if err != nil {
+		return nil, err
+	}
+	var result []Project
+	for _, p := range projects {
+		if p.ProfileID == profileID {
+			result = append(result, p)
+		}
+	}
+	return result, nil
+}
