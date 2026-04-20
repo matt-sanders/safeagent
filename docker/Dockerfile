@@ -90,4 +90,4 @@ ENV PATH="/home/$USERNAME/.local/bin:${PATH}"
 # Install Claude
 RUN curl -fsSL https://claude.ai/install.sh | bash
 
-ENTRYPOINT /bin/zsh
+ENTRYPOINT ["/bin/zsh"]
