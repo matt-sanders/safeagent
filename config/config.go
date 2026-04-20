@@ -6,9 +6,9 @@ import (
 	"path/filepath"
 )
 
-const configDirName = ".safe-claude"
+const configDirName = ".safeagent"
 
-// EnsureConfigDir ensures ~/.safe-claude exists inside the given home directory.
+// EnsureConfigDir ensures ~/.safeagent exists inside the given home directory.
 // It returns the full path to the config directory.
 func EnsureConfigDir(homeDir string) (string, error) {
 	configDir := filepath.Join(homeDir, configDirName)

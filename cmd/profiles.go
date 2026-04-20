@@ -16,7 +16,7 @@ var profilesCmd = &cobra.Command{
 		}
 
 		if len(profiles) == 0 {
-			fmt.Println("No profiles yet. Create one with: safe-claude profiles create")
+			fmt.Println("No profiles yet. Create one with: safeagent profiles create")
 			return nil
 		}
 

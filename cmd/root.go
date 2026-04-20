@@ -5,10 +5,10 @@ import (
 	"os"
 	"path/filepath"
 
-	"safe-claude/config"
-	"safe-claude/docker"
-	"safe-claude/profile"
-	"safe-claude/project"
+	"safeagent/config"
+	"safeagent/docker"
+	"safeagent/profile"
+	"safeagent/project"
 
 	"github.com/spf13/cobra"
 )
@@ -20,8 +20,8 @@ var (
 	configDir      string
 
 	rootCmd = &cobra.Command{
-		Use:   "safe-claude",
-		Short: "Run Claude Code safely inside Docker",
+		Use:   "safeagent",
+		Short: "Run agents safely inside Docker",
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			homeDir, err := os.UserHomeDir()
 			if err != nil {

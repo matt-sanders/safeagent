@@ -189,7 +189,7 @@ func TestService_SetContainerID(t *testing.T) {
 		t.Fatalf("GetOrCreate() error = %v", err)
 	}
 
-	err = svc.SetContainerID("/home/user/myapp", "safe-claude-abc123")
+	err = svc.SetContainerID("/home/user/myapp", "safeagent-abc123")
 	if err != nil {
 		t.Fatalf("SetContainerID() error = %v", err)
 	}
@@ -198,15 +198,15 @@ func TestService_SetContainerID(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetOrCreate() after SetContainerID error = %v", err)
 	}
-	if p.ContainerID != "safe-claude-abc123" {
-		t.Errorf("ContainerID = %q, want %q", p.ContainerID, "safe-claude-abc123")
+	if p.ContainerID != "safeagent-abc123" {
+		t.Errorf("ContainerID = %q, want %q", p.ContainerID, "safeagent-abc123")
 	}
 }
 
 func TestService_SetContainerID_ErrorsForUnknown(t *testing.T) {
 	svc := newTestService(t)
 
-	err := svc.SetContainerID("/nonexistent", "safe-claude-abc123")
+	err := svc.SetContainerID("/nonexistent", "safeagent-abc123")
 	if err == nil {
 		t.Error("SetContainerID() expected error for unknown project, got nil")
 	}

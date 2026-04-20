@@ -1,6 +1,6 @@
 package main
 
-import "safe-claude/cmd"
+import "safeagent/cmd"
 
 func main() {
 	cmd.Execute()

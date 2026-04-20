@@ -8,7 +8,7 @@ import (
 
 func TestEnsureConfigDir_CreatesDirectory(t *testing.T) {
 	tmpDir := t.TempDir()
-	configDir := filepath.Join(tmpDir, ".safe-claude")
+	configDir := filepath.Join(tmpDir, ".safeagent")
 
 	got, err := EnsureConfigDir(tmpDir)
 	if err != nil {
@@ -33,7 +33,7 @@ func TestEnsureConfigDir_CreatesDirectory(t *testing.T) {
 
 func TestEnsureConfigDir_ExistingDirectory(t *testing.T) {
 	tmpDir := t.TempDir()
-	configDir := filepath.Join(tmpDir, ".safe-claude")
+	configDir := filepath.Join(tmpDir, ".safeagent")
 
 	if err := os.MkdirAll(configDir, 0700); err != nil {
 		t.Fatalf("setup: %v", err)

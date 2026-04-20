@@ -1,4 +1,4 @@
-module safe-claude
+module safeagent
 
 go 1.25.8
 

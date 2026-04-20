@@ -35,7 +35,7 @@ var useProfileCmd = &cobra.Command{
 		}
 
 		if len(profiles) == 0 {
-			fmt.Println("No profiles available. Create one first with: safe-claude profiles create")
+			fmt.Println("No profiles available. Create one first with: safeagent profiles create")
 			return nil
 		}
 

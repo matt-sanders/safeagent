@@ -1,62 +1,62 @@
-# Safe Claude
+# Safe Agent
 
 Fancy your ssh keys all over the interwebs? Home directory `rm -rf`'d? No? Then put on your tin-foil hat and read on!
 
-The potential attack surface for Claude Code is fairly large as it has access to your whole machine. This means that if Claude suffers a prompt injection attack or perhaps you fat finger a `rm -rf ~/` command accidentally, the repurcussions could be fairly large.
+The potential attack surface for agentic coding is fairly large as they often have access to your whole machine. This means that if Claude suffers a prompt injection attack or perhaps you fat finger a `rm -rf ~/` command accidentally, the repurcussions could be fairly large.
 
-To solve this, we'll put Claude in jail by running it inside Docker.
+To solve this, we'll put the agent in jail by running it inside Docker.
 
 ## Usage
 
-Run `safe-claude` from anywhere to start a container with Claude installed.
+Run `safeagent` from anywhere to start a containerised instance of your agent.
 
 ### Commands
 
 #### Start a session
 
 ```sh
-safe-claude
+safeagent
 ```
 
 #### Change/set the profile
 
 ```sh
-safe-claude use-profile
+safeagent use-profile
 ```
 
 #### Exclude directory or file
 
 ```sh
-safe-claude exclude
+safeagent exclude
 ```
 
 ## Profiles
 
-Running `safe-claude` inside a directory creates a new project. Projects can use different profiles ( e.g. JS with Node LTS or Node 22 ).
+Running `safeagent` inside a directory creates a new project. Projects can use different profiles ( e.g. JS with Node LTS or Node 22 ).
 
 ### Commands
 
 #### List profiles
 
 ```sh
-safe-claude profiles
+safeagent profiles
 ```
 
 #### Create a profile
 
 ```sh
-safe-claude profiles create
+safeagent profiles create
 ```
 
 #### Remove a profile
 
 ```sh
-safe-claude profiles rm profile-name
+safeagent profiles rm profile-name
 ```
 
 ## Configuration
 
 The following files can be configured:
 
-- `~/.safe-claude/.claude/settings.json`
-- `~/.safe-claude/.claude/CLAUDE.md`
+- `~/.safeagent/.claude/settings.json`
+- `~/.safeagent/.claude/CLAUDE.md`

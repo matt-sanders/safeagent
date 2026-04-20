@@ -38,7 +38,7 @@ func (s *Service) ImageExists(imageName string) (bool, error) {
 
 // BuildImage builds a Docker image from a dockerfile string.
 func (s *Service) BuildImage(imageName string, dockerfile string, buildArgs map[string]string) error {
-	tmpDir, err := os.MkdirTemp("", "safe-claude-build-")
+	tmpDir, err := os.MkdirTemp("", "safeagent-build-")
 	if err != nil {
 		return fmt.Errorf("failed to create temp dir: %w", err)
 	}

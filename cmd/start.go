@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"safe-claude/docker"
+	"safeagent/docker"
 
 	"charm.land/huh/v2"
 )
@@ -33,7 +33,7 @@ func startSession() error {
 		}
 
 		if len(profiles) == 0 {
-			fmt.Println("No profiles available. Create one first with: safe-claude profiles create")
+			fmt.Println("No profiles available. Create one first with: safeagent profiles create")
 			return nil
 		}
 
@@ -71,7 +71,7 @@ func startSession() error {
 	}
 
 	// Ensure Docker image exists for this profile
-	imageName := fmt.Sprintf("safe-claude-profile-%s:latest", prof.ID)
+	imageName := fmt.Sprintf("safeagent-profile-%s:latest", prof.ID)
 	imageExists, err := dockerService.ImageExists(imageName)
 	if err != nil {
 		return err
@@ -89,7 +89,7 @@ func startSession() error {
 
 	// Ensure container exists for this project
 	if proj.ContainerID == "" {
-		containerName := fmt.Sprintf("safe-claude-%s", proj.ID)
+		containerName := fmt.Sprintf("safeagent-%s", proj.ID)
 		fmt.Printf("Creating container %s...\n", containerName)
 
 		claudeConfigDir := filepath.Join(configDir, ".claude")
@@ -116,7 +116,7 @@ func startSession() error {
 		}
 		if !exists {
 			// Container was deleted externally, recreate
-			containerName := fmt.Sprintf("safe-claude-%s", proj.ID)
+			containerName := fmt.Sprintf("safeagent-%s", proj.ID)
 			fmt.Printf("Container %s no longer exists, recreating...\n", proj.ContainerID)
 
 			claudeConfigDir := filepath.Join(configDir, ".claude")
