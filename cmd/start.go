@@ -3,6 +3,9 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
+
+	"safe-claude/docker"
 
 	"charm.land/huh/v2"
 )
@@ -34,7 +37,6 @@ func startSession() error {
 			return nil
 		}
 
-		// Build select options using shared display formatting
 		options := make([]huh.Option[string], len(profiles))
 		for i, p := range profiles {
 			options[i] = huh.NewOption(profileService.FormatOption(p), p.ID)
@@ -62,13 +64,85 @@ func startSession() error {
 		fmt.Printf("Profile set for this project.\n")
 	}
 
-	// Find the profile name for display
-	p, err := profileService.GetByID(proj.ProfileID)
+	// Get profile details
+	prof, err := profileService.GetByID(proj.ProfileID)
 	if err != nil {
-		fmt.Printf("Starting session in %s (profile %s not found)\n", cwd, proj.ProfileID)
-		return nil
+		return fmt.Errorf("profile %s not found: %w", proj.ProfileID, err)
 	}
 
-	fmt.Printf("Starting session in %s with profile %q (node %s)\n", cwd, p.Name, p.NodeVersion)
-	return nil
+	// Ensure Docker image exists for this profile
+	imageName := fmt.Sprintf("safe-claude-profile-%s:latest", prof.ID)
+	imageExists, err := dockerService.ImageExists(imageName)
+	if err != nil {
+		return err
+	}
+	if !imageExists {
+		fmt.Printf("Building Docker image for profile %q (node %s)...\n", prof.Name, prof.NodeVersion)
+		buildArgs := map[string]string{
+			"NODE_VERSION": prof.NodeVersion,
+		}
+		if err := dockerService.BuildImage(imageName, docker.Dockerfile, buildArgs); err != nil {
+			return err
+		}
+		fmt.Println("Image built successfully.")
+	}
+
+	// Ensure container exists for this project
+	if proj.ContainerID == "" {
+		containerName := fmt.Sprintf("safe-claude-%s", proj.ID)
+		fmt.Printf("Creating container %s...\n", containerName)
+
+		claudeConfigDir := filepath.Join(configDir, ".claude")
+		mounts := []docker.Mount{
+			{Source: cwd, Target: "/workspace"},
+			{Source: claudeConfigDir, Target: "/claude"},
+		}
+
+		if err := dockerService.CreateContainer(containerName, imageName, mounts); err != nil {
+			return err
+		}
+
+		if err := projectService.SetContainerID(cwd, containerName); err != nil {
+			return err
+		}
+
+		proj.ContainerID = containerName
+		fmt.Println("Container created.")
+	} else {
+		// Check if the saved container still exists
+		exists, err := dockerService.ContainerExists(proj.ContainerID)
+		if err != nil {
+			return err
+		}
+		if !exists {
+			// Container was deleted externally, recreate
+			containerName := fmt.Sprintf("safe-claude-%s", proj.ID)
+			fmt.Printf("Container %s no longer exists, recreating...\n", proj.ContainerID)
+
+			claudeConfigDir := filepath.Join(configDir, ".claude")
+			mounts := []docker.Mount{
+				{Source: cwd, Target: "/workspace"},
+				{Source: claudeConfigDir, Target: "/claude"},
+			}
+
+			if err := dockerService.CreateContainer(containerName, imageName, mounts); err != nil {
+				return err
+			}
+
+			if err := projectService.SetContainerID(cwd, containerName); err != nil {
+				return err
+			}
+
+			proj.ContainerID = containerName
+			fmt.Println("Container recreated.")
+		}
+	}
+
+	// Start the container and exec claude
+	if err := dockerService.StartContainer(proj.ContainerID); err != nil {
+		return err
+	}
+
+	fmt.Printf("Starting Claude in %s with profile %q (node %s)...\n", cwd, prof.Name, prof.NodeVersion)
+	return dockerService.Exec(proj.ContainerID, []string{"claude"})
 }

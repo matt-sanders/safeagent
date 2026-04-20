@@ -1,6 +1,8 @@
 package project
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,9 +11,11 @@ import (
 
 // Project represents a directory-based project configuration.
 type Project struct {
-	Path       string   `json:"path"`
-	ProfileID  string   `json:"profile_id,omitempty"`
-	Exclusions []string `json:"exclusions,omitempty"`
+	ID          string   `json:"id"`
+	Path        string   `json:"path"`
+	ProfileID   string   `json:"profile_id,omitempty"`
+	ContainerID string   `json:"container_id,omitempty"`
+	Exclusions  []string `json:"exclusions,omitempty"`
 }
 
 // Store handles project persistence to a JSON file.
@@ -22,6 +26,14 @@ type Store struct {
 // NewStore creates a Store that reads/writes projects at filePath.
 func NewStore(filePath string) *Store {
 	return &Store{filePath: filePath}
+}
+
+func generateID() string {
+	b := make([]byte, 4)
+	if _, err := rand.Read(b); err != nil {
+		panic(fmt.Sprintf("failed to generate random ID: %v", err))
+	}
+	return hex.EncodeToString(b)
 }
 
 // Load reads all projects from the file.
@@ -70,7 +82,7 @@ func (s *Store) GetOrCreate(path string) (Project, bool, error) {
 		}
 	}
 
-	p := Project{Path: path}
+	p := Project{ID: generateID(), Path: path}
 	projects = append(projects, p)
 
 	if err := s.save(projects); err != nil {
@@ -90,6 +102,23 @@ func (s *Store) SetProfile(path string, profileID string) error {
 	for i, p := range projects {
 		if p.Path == path {
 			projects[i].ProfileID = profileID
+			return s.save(projects)
+		}
+	}
+
+	return fmt.Errorf("project %q not found", path)
+}
+
+// SetContainerID sets the container ID for the project at the given path.
+func (s *Store) SetContainerID(path string, containerID string) error {
+	projects, err := s.Load()
+	if err != nil {
+		return err
+	}
+
+	for i, p := range projects {
+		if p.Path == path {
+			projects[i].ContainerID = containerID
 			return s.save(projects)
 		}
 	}

@@ -41,3 +41,8 @@ func (s *Service) AddExclusion(path string, exclusion string) error {
 func (s *Service) RemoveExclusion(path string, exclusion string) error {
 	return s.store.RemoveExclusion(path, exclusion)
 }
+
+// SetContainerID sets the container ID for the project at the given path.
+func (s *Service) SetContainerID(path string, containerID string) error {
+	return s.store.SetContainerID(path, containerID)
+}

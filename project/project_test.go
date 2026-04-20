@@ -28,6 +28,12 @@ func TestService_GetOrCreate_CreatesNewProject(t *testing.T) {
 	if p.ProfileID != "" {
 		t.Errorf("ProfileID = %q, want empty", p.ProfileID)
 	}
+	if p.ID == "" {
+		t.Error("ID is empty, want non-empty")
+	}
+	if len(p.ID) != 8 {
+		t.Errorf("ID length = %d, want 8", len(p.ID))
+	}
 }
 
 func TestService_GetOrCreate_ReturnsExisting(t *testing.T) {
@@ -172,5 +178,36 @@ func TestService_GetExclusions_EmptyByDefault(t *testing.T) {
 	}
 	if len(exclusions) != 0 {
 		t.Errorf("expected 0 exclusions, got %d", len(exclusions))
+	}
+}
+
+func TestService_SetContainerID(t *testing.T) {
+	svc := newTestService(t)
+
+	_, _, err := svc.GetOrCreate("/home/user/myapp")
+	if err != nil {
+		t.Fatalf("GetOrCreate() error = %v", err)
+	}
+
+	err = svc.SetContainerID("/home/user/myapp", "safe-claude-abc123")
+	if err != nil {
+		t.Fatalf("SetContainerID() error = %v", err)
+	}
+
+	p, _, err := svc.GetOrCreate("/home/user/myapp")
+	if err != nil {
+		t.Fatalf("GetOrCreate() after SetContainerID error = %v", err)
+	}
+	if p.ContainerID != "safe-claude-abc123" {
+		t.Errorf("ContainerID = %q, want %q", p.ContainerID, "safe-claude-abc123")
+	}
+}
+
+func TestService_SetContainerID_ErrorsForUnknown(t *testing.T) {
+	svc := newTestService(t)
+
+	err := svc.SetContainerID("/nonexistent", "safe-claude-abc123")
+	if err == nil {
+		t.Error("SetContainerID() expected error for unknown project, got nil")
 	}
 }
