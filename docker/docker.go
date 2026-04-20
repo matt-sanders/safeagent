@@ -98,6 +98,28 @@ func (s *Service) CreateContainer(name string, imageName string, mounts []Mount)
 	return nil
 }
 
+// StopContainer stops a running container.
+// Does nothing if the container is already stopped.
+func (s *Service) StopContainer(containerID string) error {
+	cmd := exec.Command("docker", "stop", containerID)
+	cmd.Stdout = nil
+	cmd.Stderr = nil
+	// Ignore error if container is already stopped
+	cmd.Run()
+	return nil
+}
+
+// RemoveContainer removes a container. Returns an error if removal fails.
+func (s *Service) RemoveContainer(containerID string) error {
+	cmd := exec.Command("docker", "rm", containerID)
+	cmd.Stdout = nil
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to remove container %s: %w", containerID, err)
+	}
+	return nil
+}
+
 // StartContainer starts a container in detached mode.
 // Does nothing if the container is already running.
 func (s *Service) StartContainer(containerID string) error {

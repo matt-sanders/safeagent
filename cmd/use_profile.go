@@ -63,6 +63,24 @@ var useProfileCmd = &cobra.Command{
 			return nil
 		}
 
+		// Remove existing container if there is one
+		if proj.ContainerID != "" {
+			exists, err := dockerService.ContainerExists(proj.ContainerID)
+			if err != nil {
+				return err
+			}
+			if exists {
+				fmt.Printf("Removing container %s...\n", proj.ContainerID)
+				dockerService.StopContainer(proj.ContainerID)
+				if err := dockerService.RemoveContainer(proj.ContainerID); err != nil {
+					return fmt.Errorf("failed to remove container: %w", err)
+				}
+			}
+			if err := projectService.SetContainerID(cwd, ""); err != nil {
+				return err
+			}
+		}
+
 		if err := projectService.SetProfile(cwd, selectedID); err != nil {
 			return err
 		}
