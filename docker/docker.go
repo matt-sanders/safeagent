@@ -84,7 +84,12 @@ func (s *Service) ContainerExists(containerID string) (bool, error) {
 func (s *Service) CreateContainer(name string, imageName string, mounts []Mount) error {
 	args := []string{"create", "--name", name, "-it"}
 	for _, m := range mounts {
-		args = append(args, "-v", fmt.Sprintf("%s:%s", m.Source, m.Target))
+		if m.Source == "" {
+			// Anonymous volume — shadows the bind mount at this path
+			args = append(args, "-v", m.Target)
+		} else {
+			args = append(args, "-v", fmt.Sprintf("%s:%s", m.Source, m.Target))
+		}
 	}
 	args = append(args, imageName, "sleep", "infinity")
 

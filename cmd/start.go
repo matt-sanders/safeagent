@@ -87,16 +87,24 @@ func startSession() error {
 		fmt.Println("Image built successfully.")
 	}
 
-	// Ensure container exists for this project
-	if proj.ContainerID == "" {
+	// Check if we need to create a container
+	needsCreate := proj.ContainerID == ""
+	if !needsCreate {
+		exists, err := dockerService.ContainerExists(proj.ContainerID)
+		if err != nil {
+			return err
+		}
+		if !exists {
+			fmt.Printf("Container %s no longer exists, recreating...\n", proj.ContainerID)
+			needsCreate = true
+		}
+	}
+
+	if needsCreate {
 		containerName := fmt.Sprintf("safeagent-%s", proj.ID)
 		fmt.Printf("Creating container %s...\n", containerName)
 
-		claudeConfigDir := filepath.Join(configDir, ".claude")
-		mounts := []docker.Mount{
-			{Source: cwd, Target: "/workspace"},
-			{Source: claudeConfigDir, Target: "/claude"},
-		}
+		mounts := buildMounts(cwd, proj.Exclusions)
 
 		if err := dockerService.CreateContainer(containerName, imageName, mounts); err != nil {
 			return err
@@ -108,34 +116,6 @@ func startSession() error {
 
 		proj.ContainerID = containerName
 		fmt.Println("Container created.")
-	} else {
-		// Check if the saved container still exists
-		exists, err := dockerService.ContainerExists(proj.ContainerID)
-		if err != nil {
-			return err
-		}
-		if !exists {
-			// Container was deleted externally, recreate
-			containerName := fmt.Sprintf("safeagent-%s", proj.ID)
-			fmt.Printf("Container %s no longer exists, recreating...\n", proj.ContainerID)
-
-			claudeConfigDir := filepath.Join(configDir, ".claude")
-			mounts := []docker.Mount{
-				{Source: cwd, Target: "/workspace"},
-				{Source: claudeConfigDir, Target: "/claude"},
-			}
-
-			if err := dockerService.CreateContainer(containerName, imageName, mounts); err != nil {
-				return err
-			}
-
-			if err := projectService.SetContainerID(cwd, containerName); err != nil {
-				return err
-			}
-
-			proj.ContainerID = containerName
-			fmt.Println("Container recreated.")
-		}
 	}
 
 	// Start the container and exec claude
@@ -145,4 +125,20 @@ func startSession() error {
 
 	fmt.Printf("Starting Claude in %s with profile %q (node %s)...\n", cwd, prof.Name, prof.NodeVersion)
 	return dockerService.Exec(proj.ContainerID, []string{"claude"})
+}
+
+func buildMounts(cwd string, exclusions []string) []docker.Mount {
+	mounts := []docker.Mount{
+		{Source: cwd, Target: "/workspace"},
+		{Source: filepath.Join(configDir, ".claude"), Target: "/claude"},
+	}
+
+	// Excluded paths get anonymous volumes that shadow the bind mount
+	for _, exc := range exclusions {
+		mounts = append(mounts, docker.Mount{
+			Target: filepath.Join("/workspace", exc),
+		})
+	}
+
+	return mounts
 }

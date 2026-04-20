@@ -16,7 +16,7 @@ var (
 
 var excludeCmd = &cobra.Command{
 	Use:   "exclude",
-	Short: "Manage file and directory exclusions for the current project",
+	Short: "Manage directory exclusions for the current project",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cwd, err := os.Getwd()
@@ -25,7 +25,7 @@ var excludeCmd = &cobra.Command{
 		}
 
 		// Ensure project exists
-		_, _, err = projectService.GetOrCreate(cwd)
+		proj, _, err := projectService.GetOrCreate(cwd)
 		if err != nil {
 			return err
 		}
@@ -80,7 +80,7 @@ var excludeCmd = &cobra.Command{
 				addForm := huh.NewForm(
 					huh.NewGroup(
 						huh.NewInput().
-							Title("Path to exclude").
+							Title("Directory to exclude").
 							Value(&newExclusion).
 							Validate(func(s string) error {
 								if strings.TrimSpace(s) == "" {
@@ -97,6 +97,10 @@ var excludeCmd = &cobra.Command{
 					fmt.Printf("Error: %s\n", err)
 				} else {
 					fmt.Printf("Excluded %q\n", strings.TrimSpace(newExclusion))
+					if err := removeProjectContainer(cwd, proj.ContainerID); err != nil {
+						return err
+					}
+					proj.ContainerID = ""
 				}
 			case strings.HasPrefix(choice, "remove:"):
 				exclusion := strings.TrimPrefix(choice, "remove:")
@@ -104,6 +108,10 @@ var excludeCmd = &cobra.Command{
 					fmt.Printf("Error: %s\n", err)
 				} else {
 					fmt.Printf("Removed exclusion %q\n", exclusion)
+					if err := removeProjectContainer(cwd, proj.ContainerID); err != nil {
+						return err
+					}
+					proj.ContainerID = ""
 				}
 			}
 			fmt.Println()
