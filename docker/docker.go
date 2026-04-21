@@ -1,10 +1,12 @@
 package docker
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 )
 
 // Mount represents a bind mount from host to container.
@@ -101,6 +103,21 @@ func (s *Service) CreateContainer(name string, imageName string, mounts []Mount)
 	}
 
 	return nil
+}
+
+// StopIfIdle stops the container if no other exec sessions are attached.
+func (s *Service) StopIfIdle(containerID string) {
+	var buf bytes.Buffer
+	cmd := exec.Command("docker", "container", "inspect", containerID, "--format={{join .ExecIDs \",\"}}")
+	cmd.Stdout = &buf
+	cmd.Stderr = nil
+	if err := cmd.Run(); err != nil {
+		return
+	}
+	execIDs := strings.TrimSpace(buf.String())
+	if execIDs == "" {
+		s.StopContainer(containerID)
+	}
 }
 
 // StopContainer stops a running container.

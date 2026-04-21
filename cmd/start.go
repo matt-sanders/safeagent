@@ -124,7 +124,12 @@ func startSession() error {
 	}
 
 	fmt.Printf("Starting Claude in %s with profile %q (node %s)...\n", cwd, prof.Name, prof.NodeVersion)
-	return dockerService.Exec(proj.ContainerID, []string{"claude"})
+	execErr := dockerService.Exec(proj.ContainerID, []string{"claude"})
+
+	// Stop the container if nothing else is attached
+	dockerService.StopIfIdle(proj.ContainerID)
+
+	return execErr
 }
 
 func buildMounts(cwd string, exclusions []string) []docker.Mount {
