@@ -72,6 +72,13 @@ RUN sh -c "$(wget -O- https://github.com/deluan/zsh-in-docker/releases/download/
   -a "export PROMPT_COMMAND='history -a' && export HISTFILE=/commandhistory/.bash_history" \
   -x
 
+# Install python UV dependency
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+ENV PATH="/home/$USERNAME/.local/bin:${PATH}"
+
+# Install Claude
+RUN curl -fsSL https://claude.ai/install.sh | bash
+
 # Install NVM
 ARG NVM_VERSION=0.40.4
 RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v${NVM_VERSION}/install.sh | PROFILE=/home/$USERNAME/.zshrc bash
@@ -82,12 +89,5 @@ RUN bash -c "source /home/$USERNAME/.nvm/nvm.sh && nvm install $NODE_VERSION && 
 
 # Install pnpm
 RUN wget -qO- https://get.pnpm.io/install.sh | ENV="$HOME/.zshrc" SHELL="$(which sh)" sh -
-
-# Install python UV dependency
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh
-ENV PATH="/home/$USERNAME/.local/bin:${PATH}"
-
-# Install Claude
-RUN curl -fsSL https://claude.ai/install.sh | bash
 
 ENTRYPOINT ["/bin/zsh"]
