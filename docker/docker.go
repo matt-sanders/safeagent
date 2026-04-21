@@ -84,7 +84,7 @@ func (s *Service) ContainerExists(containerID string) (bool, error) {
 
 // CreateContainer creates a new Docker container that stays alive for exec.
 func (s *Service) CreateContainer(name string, imageName string, mounts []Mount) error {
-	args := []string{"create", "--name", name, "-it"}
+	args := []string{"create", "--name", name}
 	for _, m := range mounts {
 		if m.Source == "" {
 			// Anonymous volume — shadows the bind mount at this path
@@ -93,7 +93,7 @@ func (s *Service) CreateContainer(name string, imageName string, mounts []Mount)
 			args = append(args, "-v", fmt.Sprintf("%s:%s", m.Source, m.Target))
 		}
 	}
-	args = append(args, imageName, "sleep", "infinity")
+	args = append(args, imageName, "-c", "sleep infinity")
 
 	cmd := exec.Command("docker", args...)
 	cmd.Stdout = os.Stdout
