@@ -1,6 +1,7 @@
 package project
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 )
@@ -181,37 +182,6 @@ func TestService_GetExclusions_EmptyByDefault(t *testing.T) {
 	}
 }
 
-func TestService_SetContainerID(t *testing.T) {
-	svc := newTestService(t)
-
-	_, _, err := svc.GetOrCreate("/home/user/myapp")
-	if err != nil {
-		t.Fatalf("GetOrCreate() error = %v", err)
-	}
-
-	err = svc.SetContainerID("/home/user/myapp", "safeagent-abc123")
-	if err != nil {
-		t.Fatalf("SetContainerID() error = %v", err)
-	}
-
-	p, _, err := svc.GetOrCreate("/home/user/myapp")
-	if err != nil {
-		t.Fatalf("GetOrCreate() after SetContainerID error = %v", err)
-	}
-	if p.ContainerID != "safeagent-abc123" {
-		t.Errorf("ContainerID = %q, want %q", p.ContainerID, "safeagent-abc123")
-	}
-}
-
-func TestService_SetContainerID_ErrorsForUnknown(t *testing.T) {
-	svc := newTestService(t)
-
-	err := svc.SetContainerID("/nonexistent", "safeagent-abc123")
-	if err == nil {
-		t.Error("SetContainerID() expected error for unknown project, got nil")
-	}
-}
-
 func TestService_ListByProfileID(t *testing.T) {
 	svc := newTestService(t)
 
@@ -237,5 +207,34 @@ func TestService_ListByProfileID(t *testing.T) {
 	}
 	if len(projects) != 0 {
 		t.Errorf("expected 0 projects, got %d", len(projects))
+	}
+}
+
+func TestStore_Load_IgnoresLegacyContainerID(t *testing.T) {
+	tmpDir := t.TempDir()
+	filePath := filepath.Join(tmpDir, "projects.json")
+
+	// A legacy projects.json from before container_id was removed.
+	legacy := `[{"id":"abc12345","path":"/home/user/myapp","profile_id":"prof1","container_id":"safeagent-abc12345"}]`
+	if err := os.WriteFile(filePath, []byte(legacy), 0600); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	store := NewStore(filePath)
+	projects, err := store.Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if len(projects) != 1 {
+		t.Fatalf("expected 1 project, got %d", len(projects))
+	}
+	if projects[0].ID != "abc12345" {
+		t.Errorf("ID = %q, want %q", projects[0].ID, "abc12345")
+	}
+	if projects[0].Path != "/home/user/myapp" {
+		t.Errorf("Path = %q, want %q", projects[0].Path, "/home/user/myapp")
+	}
+	if projects[0].ProfileID != "prof1" {
+		t.Errorf("ProfileID = %q, want %q", projects[0].ProfileID, "prof1")
 	}
 }

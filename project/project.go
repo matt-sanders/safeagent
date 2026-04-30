@@ -11,11 +11,10 @@ import (
 
 // Project represents a directory-based project configuration.
 type Project struct {
-	ID          string   `json:"id"`
-	Path        string   `json:"path"`
-	ProfileID   string   `json:"profile_id,omitempty"`
-	ContainerID string   `json:"container_id,omitempty"`
-	Exclusions  []string `json:"exclusions,omitempty"`
+	ID         string   `json:"id"`
+	Path       string   `json:"path"`
+	ProfileID  string   `json:"profile_id,omitempty"`
+	Exclusions []string `json:"exclusions,omitempty"`
 }
 
 // Store handles project persistence to a JSON file.
@@ -102,23 +101,6 @@ func (s *Store) SetProfile(path string, profileID string) error {
 	for i, p := range projects {
 		if p.Path == path {
 			projects[i].ProfileID = profileID
-			return s.save(projects)
-		}
-	}
-
-	return fmt.Errorf("project %q not found", path)
-}
-
-// SetContainerID sets the container ID for the project at the given path.
-func (s *Store) SetContainerID(path string, containerID string) error {
-	projects, err := s.Load()
-	if err != nil {
-		return err
-	}
-
-	for i, p := range projects {
-		if p.Path == path {
-			projects[i].ContainerID = containerID
 			return s.save(projects)
 		}
 	}

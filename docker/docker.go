@@ -1,12 +1,10 @@
 package docker
 
 import (
-	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 )
 
 // Mount represents a bind mount from host to container.
@@ -67,24 +65,11 @@ func (s *Service) BuildImage(imageName string, dockerfile string, buildArgs map[
 	return nil
 }
 
-// ContainerExists checks if a Docker container exists (running or stopped).
-func (s *Service) ContainerExists(containerID string) (bool, error) {
-	cmd := exec.Command("docker", "container", "inspect", containerID)
-	cmd.Stdout = nil
-	cmd.Stderr = nil
-	err := cmd.Run()
-	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
-			return false, nil
-		}
-		return false, fmt.Errorf("failed to check container %s: %w", containerID, err)
-	}
-	return true, nil
-}
-
-// CreateContainer creates a new Docker container that stays alive for exec.
-func (s *Service) CreateContainer(name string, imageName string, mounts []Mount) error {
-	args := []string{"create", "--name", name}
+// Run starts an ephemeral container that runs the given command interactively
+// attached to the user's terminal. The container is removed when the command
+// exits.
+func (s *Service) Run(imageName string, mounts []Mount, command []string) error {
+	args := []string{"run", "--rm", "-it", "-w", "/workspace"}
 	for _, m := range mounts {
 		if m.Source == "" {
 			// Anonymous volume — shadows the bind mount at this path
@@ -93,53 +78,15 @@ func (s *Service) CreateContainer(name string, imageName string, mounts []Mount)
 			args = append(args, "-v", fmt.Sprintf("%s:%s", m.Source, m.Target))
 		}
 	}
-	args = append(args, imageName, "-c", "sleep infinity")
+	args = append(args, imageName, "-ic")
+	args = append(args, command...)
 
 	cmd := exec.Command("docker", args...)
+	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("docker create failed: %w", err)
-	}
 
-	return nil
-}
-
-// StopIfIdle stops the container if no other exec sessions are attached.
-func (s *Service) StopIfIdle(containerID string) {
-	var buf bytes.Buffer
-	cmd := exec.Command("docker", "container", "inspect", containerID, "--format={{join .ExecIDs \",\"}}")
-	cmd.Stdout = &buf
-	cmd.Stderr = nil
-	if err := cmd.Run(); err != nil {
-		return
-	}
-	execIDs := strings.TrimSpace(buf.String())
-	if execIDs == "" {
-		s.StopContainer(containerID)
-	}
-}
-
-// StopContainer stops a running container.
-// Does nothing if the container is already stopped.
-func (s *Service) StopContainer(containerID string) error {
-	cmd := exec.Command("docker", "stop", containerID)
-	cmd.Stdout = nil
-	cmd.Stderr = nil
-	// Ignore error if container is already stopped
-	cmd.Run()
-	return nil
-}
-
-// RemoveContainer removes a container. Returns an error if removal fails.
-func (s *Service) RemoveContainer(containerID string) error {
-	cmd := exec.Command("docker", "rm", containerID)
-	cmd.Stdout = nil
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to remove container %s: %w", containerID, err)
-	}
-	return nil
+	return cmd.Run()
 }
 
 // RemoveImage removes a Docker image. Returns an error if removal fails.
@@ -153,27 +100,3 @@ func (s *Service) RemoveImage(imageName string) error {
 	return nil
 }
 
-// StartContainer starts a container in detached mode.
-// Does nothing if the container is already running.
-func (s *Service) StartContainer(containerID string) error {
-	cmd := exec.Command("docker", "start", containerID)
-	cmd.Stdout = nil
-	cmd.Stderr = nil
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("docker start failed: %w", err)
-	}
-	return nil
-}
-
-// Exec runs a command inside a running container, attached to the user's terminal.
-func (s *Service) Exec(containerID string, command []string) error {
-	args := []string{"exec", "-it", "-w", "/workspace", containerID, "/bin/zsh", "-ic"}
-	args = append(args, command...)
-
-	cmd := exec.Command("docker", args...)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	return cmd.Run()
-}

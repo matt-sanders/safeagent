@@ -23,18 +23,6 @@ var profilesRebuildCmd = &cobra.Command{
 
 		imageName := fmt.Sprintf("safeagent-profile-%s:latest", prof.ID)
 
-		// Find all projects using this profile and remove their containers
-		projects, err := projectService.ListByProfileID(prof.ID)
-		if err != nil {
-			return err
-		}
-
-		for _, proj := range projects {
-			if err := removeProjectContainer(proj.Path, proj.ContainerID); err != nil {
-				return err
-			}
-		}
-
 		// Rebuild the image (replaces the existing tag)
 		fmt.Printf("Rebuilding image for profile %q (node %s)...\n", prof.Name, prof.NodeVersion)
 		buildArgs := map[string]string{

@@ -87,49 +87,10 @@ func startSession() error {
 		fmt.Println("Image built successfully.")
 	}
 
-	// Check if we need to create a container
-	needsCreate := proj.ContainerID == ""
-	if !needsCreate {
-		exists, err := dockerService.ContainerExists(proj.ContainerID)
-		if err != nil {
-			return err
-		}
-		if !exists {
-			fmt.Printf("Container %s no longer exists, recreating...\n", proj.ContainerID)
-			needsCreate = true
-		}
-	}
-
-	if needsCreate {
-		containerName := fmt.Sprintf("safeagent-%s", proj.ID)
-		fmt.Printf("Creating container %s...\n", containerName)
-
-		mounts := buildMounts(cwd, proj.Exclusions)
-
-		if err := dockerService.CreateContainer(containerName, imageName, mounts); err != nil {
-			return err
-		}
-
-		if err := projectService.SetContainerID(cwd, containerName); err != nil {
-			return err
-		}
-
-		proj.ContainerID = containerName
-		fmt.Println("Container created.")
-	}
-
-	// Start the container and exec claude
-	if err := dockerService.StartContainer(proj.ContainerID); err != nil {
-		return err
-	}
+	mounts := buildMounts(cwd, proj.Exclusions)
 
 	fmt.Printf("Starting Claude in %s with profile %q (node %s)...\n", cwd, prof.Name, prof.NodeVersion)
-	execErr := dockerService.Exec(proj.ContainerID, []string{"claude"})
-
-	// Stop the container if nothing else is attached
-	dockerService.StopIfIdle(proj.ContainerID)
-
-	return execErr
+	return dockerService.Run(imageName, mounts, []string{"claude"})
 }
 
 func buildMounts(cwd string, exclusions []string) []docker.Mount {

@@ -63,11 +63,6 @@ var useProfileCmd = &cobra.Command{
 			return nil
 		}
 
-		// Remove existing container so a new one is created with the new profile
-		if err := removeProjectContainer(cwd, proj.ContainerID); err != nil {
-			return err
-		}
-
 		if err := projectService.SetProfile(cwd, selectedID); err != nil {
 			return err
 		}

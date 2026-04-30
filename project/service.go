@@ -42,11 +42,6 @@ func (s *Service) RemoveExclusion(path string, exclusion string) error {
 	return s.store.RemoveExclusion(path, exclusion)
 }
 
-// SetContainerID sets the container ID for the project at the given path.
-func (s *Service) SetContainerID(path string, containerID string) error {
-	return s.store.SetContainerID(path, containerID)
-}
-
 // ListByProfileID returns all projects using the given profile ID.
 func (s *Service) ListByProfileID(profileID string) ([]Project, error) {
 	projects, err := s.store.Load()

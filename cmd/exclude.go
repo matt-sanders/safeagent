@@ -25,7 +25,7 @@ var excludeCmd = &cobra.Command{
 		}
 
 		// Ensure project exists
-		proj, _, err := projectService.GetOrCreate(cwd)
+		_, _, err = projectService.GetOrCreate(cwd)
 		if err != nil {
 			return err
 		}
@@ -97,10 +97,6 @@ var excludeCmd = &cobra.Command{
 					fmt.Printf("Error: %s\n", err)
 				} else {
 					fmt.Printf("Excluded %q\n", strings.TrimSpace(newExclusion))
-					if err := removeProjectContainer(cwd, proj.ContainerID); err != nil {
-						return err
-					}
-					proj.ContainerID = ""
 				}
 			case strings.HasPrefix(choice, "remove:"):
 				exclusion := strings.TrimPrefix(choice, "remove:")
@@ -108,10 +104,6 @@ var excludeCmd = &cobra.Command{
 					fmt.Printf("Error: %s\n", err)
 				} else {
 					fmt.Printf("Removed exclusion %q\n", exclusion)
-					if err := removeProjectContainer(cwd, proj.ContainerID); err != nil {
-						return err
-					}
-					proj.ContainerID = ""
 				}
 			}
 			fmt.Println()
