@@ -24,7 +24,7 @@ var useProfileCmd = &cobra.Command{
 		}
 
 		// Ensure project exists
-		proj, _, err := projectService.GetOrCreate(cwd)
+		proj, _, err := projectService.FindOrCreateForCwd(cwd)
 		if err != nil {
 			return err
 		}
@@ -63,7 +63,7 @@ var useProfileCmd = &cobra.Command{
 			return nil
 		}
 
-		if err := projectService.SetProfile(cwd, selectedID); err != nil {
+		if err := projectService.SetProfile(proj.Path, selectedID); err != nil {
 			return err
 		}
 

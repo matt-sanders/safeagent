@@ -17,12 +17,12 @@ func startSession() error {
 	}
 
 	// Ensure project exists
-	proj, created, err := projectService.GetOrCreate(cwd)
+	proj, created, err := projectService.FindOrCreateForCwd(cwd)
 	if err != nil {
 		return err
 	}
 	if created {
-		fmt.Printf("Created new project for %s\n", cwd)
+		fmt.Printf("Created new project for %s\n", proj.Path)
 	}
 
 	// Check if profile is set
@@ -56,7 +56,7 @@ func startSession() error {
 			return fmt.Errorf("profile selection cancelled: %w", err)
 		}
 
-		if err := projectService.SetProfile(cwd, selectedID); err != nil {
+		if err := projectService.SetProfile(proj.Path, selectedID); err != nil {
 			return err
 		}
 
@@ -87,22 +87,32 @@ func startSession() error {
 		fmt.Println("Image built successfully.")
 	}
 
-	mounts := buildMounts(cwd, proj.Exclusions)
+	relPath, err := filepath.Rel(proj.Path, cwd)
+	if err != nil {
+		return fmt.Errorf("could not determine relative path from project root %q to %q: %w", proj.Path, cwd, err)
+	}
+	if !filepath.IsLocal(relPath) && relPath != "." {
+		return fmt.Errorf("cwd %q is not within project root %q", cwd, proj.Path)
+	}
+
+	workdir := filepath.Join("/workspace", relPath)
+	mounts := buildMounts(proj.Path, relPath, proj.Exclusions)
 
 	fmt.Printf("Starting Claude in %s with profile %q (node %s)...\n", cwd, prof.Name, prof.NodeVersion)
-	return dockerService.Run(imageName, mounts, []string{"claude"})
+	return dockerService.Run(imageName, workdir, mounts, []string{"claude"})
 }
 
-func buildMounts(cwd string, exclusions []string) []docker.Mount {
+func buildMounts(projectPath, cwdSubpath string, exclusions []string) []docker.Mount {
 	mounts := []docker.Mount{
-		{Source: cwd, Target: "/workspace"},
+		{Source: projectPath, Target: "/workspace"},
 		{Source: filepath.Join(configDir, ".claude"), Target: "/claude"},
 	}
 
-	// Excluded paths get anonymous volumes that shadow the bind mount
+	// Excluded paths get anonymous volumes that shadow the bind mount,
+	// rooted at the cwd subpath inside the workspace.
 	for _, exc := range exclusions {
 		mounts = append(mounts, docker.Mount{
-			Target: filepath.Join("/workspace", exc),
+			Target: filepath.Join("/workspace", cwdSubpath, exc),
 		})
 	}
 

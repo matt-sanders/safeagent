@@ -56,3 +56,17 @@ func (s *Service) ListByProfileID(profileID string) ([]Project, error) {
 	}
 	return result, nil
 }
+
+// FindOrCreateForCwd resolves a project for the given cwd: returns the closest
+// ancestor project if one exists; otherwise creates a new project rooted at cwd.
+// The bool return value is true only when a new project was created.
+func (s *Service) FindOrCreateForCwd(cwd string) (Project, bool, error) {
+	proj, found, err := s.store.FindForCwd(cwd)
+	if err != nil {
+		return Project{}, false, err
+	}
+	if found {
+		return proj, false, nil
+	}
+	return s.store.GetOrCreate(cwd)
+}

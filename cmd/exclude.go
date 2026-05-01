@@ -24,14 +24,14 @@ var excludeCmd = &cobra.Command{
 			return fmt.Errorf("could not determine working directory: %w", err)
 		}
 
-		// Ensure project exists
-		_, _, err = projectService.GetOrCreate(cwd)
+		// Resolve the project (walks up to find an ancestor; creates at cwd otherwise).
+		proj, _, err := projectService.FindOrCreateForCwd(cwd)
 		if err != nil {
 			return err
 		}
 
 		for {
-			exclusions, err := projectService.GetExclusions(cwd)
+			exclusions, err := projectService.GetExclusions(proj.Path)
 			if err != nil {
 				return err
 			}
@@ -93,14 +93,14 @@ var excludeCmd = &cobra.Command{
 				if err := addForm.Run(); err != nil {
 					return nil
 				}
-				if err := projectService.AddExclusion(cwd, strings.TrimSpace(newExclusion)); err != nil {
+				if err := projectService.AddExclusion(proj.Path, strings.TrimSpace(newExclusion)); err != nil {
 					fmt.Printf("Error: %s\n", err)
 				} else {
 					fmt.Printf("Excluded %q\n", strings.TrimSpace(newExclusion))
 				}
 			case strings.HasPrefix(choice, "remove:"):
 				exclusion := strings.TrimPrefix(choice, "remove:")
-				if err := projectService.RemoveExclusion(cwd, exclusion); err != nil {
+				if err := projectService.RemoveExclusion(proj.Path, exclusion); err != nil {
 					fmt.Printf("Error: %s\n", err)
 				} else {
 					fmt.Printf("Removed exclusion %q\n", exclusion)

@@ -66,10 +66,10 @@ func (s *Service) BuildImage(imageName string, dockerfile string, buildArgs map[
 }
 
 // Run starts an ephemeral container that runs the given command interactively
-// attached to the user's terminal. The container is removed when the command
-// exits.
-func (s *Service) Run(imageName string, mounts []Mount, command []string) error {
-	args := []string{"run", "--rm", "-it", "-w", "/workspace"}
+// attached to the user's terminal, with the container's working directory set
+// to workdir. The container is removed when the command exits.
+func (s *Service) Run(imageName, workdir string, mounts []Mount, command []string) error {
+	args := []string{"run", "--rm", "-it", "-w", workdir}
 	for _, m := range mounts {
 		if m.Source == "" {
 			// Anonymous volume — shadows the bind mount at this path

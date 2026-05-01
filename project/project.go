@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 )
 
 // Project represents a directory-based project configuration.
@@ -89,6 +90,30 @@ func (s *Store) GetOrCreate(path string) (Project, bool, error) {
 	}
 
 	return p, true, nil
+}
+
+// FindForCwd returns the project whose Path is the closest ancestor of cwd
+// (or cwd itself). If no project matches any ancestor, returns ok=false.
+// This method does not create projects.
+func (s *Store) FindForCwd(cwd string) (Project, bool, error) {
+	projects, err := s.Load()
+	if err != nil {
+		return Project{}, false, err
+	}
+
+	cur := filepath.Clean(cwd)
+	for {
+		for _, p := range projects {
+			if p.Path == cur {
+				return p, true, nil
+			}
+		}
+		parent := filepath.Dir(cur)
+		if parent == cur {
+			return Project{}, false, nil
+		}
+		cur = parent
+	}
 }
 
 // SetProfile sets the profile ID for the project at the given path.

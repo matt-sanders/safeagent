@@ -238,3 +238,161 @@ func TestStore_Load_IgnoresLegacyContainerID(t *testing.T) {
 		t.Errorf("ProfileID = %q, want %q", projects[0].ProfileID, "prof1")
 	}
 }
+
+func TestStore_FindForCwd_ExactMatch(t *testing.T) {
+	tmpDir := t.TempDir()
+	store := NewStore(filepath.Join(tmpDir, "projects.json"))
+	svc := NewService(store)
+
+	_, _, err := svc.GetOrCreate("/home/user/myapp")
+	if err != nil {
+		t.Fatalf("GetOrCreate() error = %v", err)
+	}
+
+	p, found, err := store.FindForCwd("/home/user/myapp")
+	if err != nil {
+		t.Fatalf("FindForCwd() error = %v", err)
+	}
+	if !found {
+		t.Fatal("expected found = true for exact match")
+	}
+	if p.Path != "/home/user/myapp" {
+		t.Errorf("Path = %q, want %q", p.Path, "/home/user/myapp")
+	}
+}
+
+func TestStore_FindForCwd_AncestorMatch(t *testing.T) {
+	tmpDir := t.TempDir()
+	store := NewStore(filepath.Join(tmpDir, "projects.json"))
+	svc := NewService(store)
+
+	_, _, err := svc.GetOrCreate("/home/user/myapp")
+	if err != nil {
+		t.Fatalf("GetOrCreate() error = %v", err)
+	}
+
+	p, found, err := store.FindForCwd("/home/user/myapp/worktree-1/sub")
+	if err != nil {
+		t.Fatalf("FindForCwd() error = %v", err)
+	}
+	if !found {
+		t.Fatal("expected found = true for ancestor match")
+	}
+	if p.Path != "/home/user/myapp" {
+		t.Errorf("Path = %q, want %q", p.Path, "/home/user/myapp")
+	}
+}
+
+func TestStore_FindForCwd_PrefersDeepestAncestor(t *testing.T) {
+	tmpDir := t.TempDir()
+	store := NewStore(filepath.Join(tmpDir, "projects.json"))
+	svc := NewService(store)
+
+	_, _, err := svc.GetOrCreate("/home/user")
+	if err != nil {
+		t.Fatalf("GetOrCreate() error = %v", err)
+	}
+	_, _, err = svc.GetOrCreate("/home/user/myapp")
+	if err != nil {
+		t.Fatalf("GetOrCreate() error = %v", err)
+	}
+
+	p, found, err := store.FindForCwd("/home/user/myapp/worktree-1")
+	if err != nil {
+		t.Fatalf("FindForCwd() error = %v", err)
+	}
+	if !found {
+		t.Fatal("expected found = true")
+	}
+	if p.Path != "/home/user/myapp" {
+		t.Errorf("Path = %q, want %q (deepest ancestor)", p.Path, "/home/user/myapp")
+	}
+}
+
+func TestStore_FindForCwd_NoMatch(t *testing.T) {
+	tmpDir := t.TempDir()
+	store := NewStore(filepath.Join(tmpDir, "projects.json"))
+
+	_, found, err := store.FindForCwd("/some/random/path")
+	if err != nil {
+		t.Fatalf("FindForCwd() error = %v", err)
+	}
+	if found {
+		t.Error("expected found = false for empty store")
+	}
+}
+
+func TestStore_FindForCwd_StopsAtRoot(t *testing.T) {
+	tmpDir := t.TempDir()
+	store := NewStore(filepath.Join(tmpDir, "projects.json"))
+	svc := NewService(store)
+
+	// Project at a sibling, not on the path from cwd to /
+	_, _, err := svc.GetOrCreate("/elsewhere/myapp")
+	if err != nil {
+		t.Fatalf("GetOrCreate() error = %v", err)
+	}
+
+	_, found, err := store.FindForCwd("/home/user/myapp")
+	if err != nil {
+		t.Fatalf("FindForCwd() error = %v", err)
+	}
+	if found {
+		t.Error("expected found = false when project is not an ancestor")
+	}
+}
+
+func TestService_FindOrCreateForCwd_ReturnsExistingExact(t *testing.T) {
+	svc := newTestService(t)
+
+	_, _, err := svc.GetOrCreate("/home/user/myapp")
+	if err != nil {
+		t.Fatalf("GetOrCreate() error = %v", err)
+	}
+
+	p, created, err := svc.FindOrCreateForCwd("/home/user/myapp")
+	if err != nil {
+		t.Fatalf("FindOrCreateForCwd() error = %v", err)
+	}
+	if created {
+		t.Error("expected created = false for existing project")
+	}
+	if p.Path != "/home/user/myapp" {
+		t.Errorf("Path = %q, want %q", p.Path, "/home/user/myapp")
+	}
+}
+
+func TestService_FindOrCreateForCwd_ReturnsAncestor(t *testing.T) {
+	svc := newTestService(t)
+
+	_, _, err := svc.GetOrCreate("/home/user/myapp")
+	if err != nil {
+		t.Fatalf("GetOrCreate() error = %v", err)
+	}
+
+	p, created, err := svc.FindOrCreateForCwd("/home/user/myapp/worktree-1")
+	if err != nil {
+		t.Fatalf("FindOrCreateForCwd() error = %v", err)
+	}
+	if created {
+		t.Error("expected created = false when ancestor exists")
+	}
+	if p.Path != "/home/user/myapp" {
+		t.Errorf("Path = %q, want %q (ancestor)", p.Path, "/home/user/myapp")
+	}
+}
+
+func TestService_FindOrCreateForCwd_CreatesWhenNoAncestor(t *testing.T) {
+	svc := newTestService(t)
+
+	p, created, err := svc.FindOrCreateForCwd("/home/user/newapp")
+	if err != nil {
+		t.Fatalf("FindOrCreateForCwd() error = %v", err)
+	}
+	if !created {
+		t.Error("expected created = true for new project")
+	}
+	if p.Path != "/home/user/newapp" {
+		t.Errorf("Path = %q, want %q", p.Path, "/home/user/newapp")
+	}
+}
