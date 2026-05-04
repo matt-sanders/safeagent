@@ -6,8 +6,6 @@ import (
 	"path/filepath"
 
 	"safeagent/docker"
-
-	"charm.land/huh/v2"
 )
 
 func startSession() error {
@@ -27,41 +25,14 @@ func startSession() error {
 
 	// Check if profile is set
 	if proj.ProfileID == "" {
-		profiles, err := profileService.List()
+		selected, profileID, err := promptAndSetProfile(proj.Path)
 		if err != nil {
 			return err
 		}
-
-		if len(profiles) == 0 {
-			fmt.Println("No profiles available. Create one first with: safeagent profiles create")
+		if !selected {
 			return nil
 		}
-
-		options := make([]huh.Option[string], len(profiles))
-		for i, p := range profiles {
-			options[i] = huh.NewOption(profileService.FormatOption(p), p.ID)
-		}
-
-		var selectedID string
-		form := huh.NewForm(
-			huh.NewGroup(
-				huh.NewSelect[string]().
-					Title("Select a profile for this project").
-					Options(options...).
-					Value(&selectedID),
-			),
-		)
-
-		if err := form.Run(); err != nil {
-			return fmt.Errorf("profile selection cancelled: %w", err)
-		}
-
-		if err := projectService.SetProfile(proj.Path, selectedID); err != nil {
-			return err
-		}
-
-		proj.ProfileID = selectedID
-		fmt.Printf("Profile set for this project.\n")
+		proj.ProfileID = profileID
 	}
 
 	// Get profile details
