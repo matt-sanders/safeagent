@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 )
 
 // Mount represents a bind mount from host to container.
@@ -78,8 +79,7 @@ func (s *Service) Run(imageName, workdir string, mounts []Mount, command []strin
 			args = append(args, "-v", fmt.Sprintf("%s:%s", m.Source, m.Target))
 		}
 	}
-	args = append(args, imageName, "-ic")
-	args = append(args, command...)
+	args = append(args, imageName, "-ic", strings.Join(command, " "))
 
 	cmd := exec.Command("docker", args...)
 	cmd.Stdin = os.Stdin

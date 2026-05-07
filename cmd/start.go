@@ -70,7 +70,7 @@ func startSession() error {
 	mounts := buildMounts(proj.Path, relPath, proj.Exclusions)
 
 	fmt.Printf("Starting Claude in %s with profile %q (node %s)...\n", cwd, prof.Name, prof.NodeVersion)
-	return dockerService.Run(imageName, workdir, mounts, []string{"claude"})
+	return dockerService.Run(imageName, workdir, mounts, []string{"claude", "--dangerously-skip-permissions"})
 }
 
 func buildMounts(projectPath, cwdSubpath string, exclusions []string) []docker.Mount {
