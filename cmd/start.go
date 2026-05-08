@@ -66,24 +66,23 @@ func startSession() error {
 		return fmt.Errorf("cwd %q is not within project root %q", cwd, proj.Path)
 	}
 
-	workdir := filepath.Join("/workspace", relPath)
-	mounts := buildMounts(proj.Path, relPath, proj.Exclusions)
+	mounts := buildMounts(proj.Path, cwd, proj.Exclusions)
 
 	fmt.Printf("Starting Claude in %s with profile %q (node %s)...\n", cwd, prof.Name, prof.NodeVersion)
-	return dockerService.Run(imageName, workdir, mounts, []string{"claude", "--dangerously-skip-permissions"})
+	return dockerService.Run(imageName, cwd, mounts, []string{"claude", "--dangerously-skip-permissions"})
 }
 
-func buildMounts(projectPath, cwdSubpath string, exclusions []string) []docker.Mount {
+func buildMounts(projectPath, cwd string, exclusions []string) []docker.Mount {
 	mounts := []docker.Mount{
-		{Source: projectPath, Target: "/workspace"},
+		{Source: projectPath, Target: projectPath},
 		{Source: filepath.Join(configDir, ".claude"), Target: "/claude"},
 	}
 
 	// Excluded paths get anonymous volumes that shadow the bind mount,
-	// rooted at the cwd subpath inside the workspace.
+	// rooted at the cwd inside the container (which matches the host cwd).
 	for _, exc := range exclusions {
 		mounts = append(mounts, docker.Mount{
-			Target: filepath.Join("/workspace", cwdSubpath, exc),
+			Target: filepath.Join(cwd, exc),
 		})
 	}
 

@@ -40,10 +40,8 @@ RUN SNIPPET="export PROMPT_COMMAND='history -a' && export HISTFILE=/commandhisto
   && touch /commandhistory/.bash_history \
   && chown -R $USERNAME /commandhistory
 
-# Create workspace
-RUN mkdir /workspace $CLAUDE_CONFIG_DIR && chown $USERNAME /workspace $CLAUDE_CONFIG_DIR
-
-WORKDIR /workspace
+# Create the Claude config directory
+RUN mkdir $CLAUDE_CONFIG_DIR && chown $USERNAME $CLAUDE_CONFIG_DIR
 
 # Install git-delta to help Claude display diffs
 ARG GIT_DELTA_VERSION=0.18.2
