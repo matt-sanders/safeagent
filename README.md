@@ -6,6 +6,9 @@ The potential attack surface for agentic coding is fairly large as they often ha
 
 To solve this, we'll put the agent in jail by running it inside Docker.
 
+> [!NOTE]
+> This was built entirely with Claude. It's a personal project and I just need it to work. Code quality is likely poor, as I just needed something up and running quickly.
+
 ## Core concepts
 
 **Profile**: A profile is essentially a docker image built with certain configurations or tools built into it. This allows the same image to be used across multiple projects. For example, you may have a Node22 profile or a Node24 profile. Currently safeagent comes installed with python3, uv, and nvm. When creating a profile, you'll be asked to select a node version.
@@ -31,7 +34,8 @@ You can then run it my ensuring the path to safeagent is in your `PATH`. Options
 
 Run `safeagent` from anywhere to start a containerised instance of your agent inside the cwd. The cwd will be mounted to a docker container.
 
-NOTE: See the section on [git worktrees](#git-worktrees) below if you use them.
+> [!NOTE]
+> See the section on [git worktrees](#git-worktrees) below if you use them.
 
 ### Commands
 
