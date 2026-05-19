@@ -12,6 +12,21 @@ To solve this, we'll put the agent in jail by running it inside Docker.
 
 **Project**: A project is a set of configurations for a particular directory. These are things like the profile safeagent uses, any directory exclusions, etc. Whenever you start safeagent for the first time in a directory, it will ask you to create a project and link it to a profile.
 
+## Build & Installation
+
+You'll need to build safeagent before you can use it.
+
+```
+mkdir bin
+go build -o bin/safeagent
+```
+
+You can then run it my ensuring the path to safeagent is in your `PATH`. Options are:
+
+- Adding the binary to your `PATH` ( e.g. in your `.zshrc` or equivalent )
+- Move the binary to somewhere already in your path ( e.g. `mv bin/safeagent ~/.local/bin/` )
+- Symlink it
+
 ## Usage
 
 Run `safeagent` from anywhere to start a containerised instance of your agent inside the cwd. The cwd will be mounted to a docker container.
