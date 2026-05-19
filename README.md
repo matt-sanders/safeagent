@@ -6,9 +6,17 @@ The potential attack surface for agentic coding is fairly large as they often ha
 
 To solve this, we'll put the agent in jail by running it inside Docker.
 
+## Core concepts
+
+**Profile**: A profile is essentially a docker image built with certain configurations or tools built into it. This allows the same image to be used across multiple projects. For example, you may have a Node22 profile or a Node24 profile. Currently safeagent comes installed with python3, uv, and nvm. When creating a profile, you'll be asked to select a node version.
+
+**Project**: A project is a set of configurations for a particular directory. These are things like the profile safeagent uses, any directory exclusions, etc. Whenever you start safeagent for the first time in a directory, it will ask you to create a project and link it to a profile.
+
 ## Usage
 
-Run `safeagent` from anywhere to start a containerised instance of your agent.
+Run `safeagent` from anywhere to start a containerised instance of your agent inside the cwd. The cwd will be mounted to a docker container.
+
+NOTE: See the section on [git worktrees](#git-worktrees) below if you use them.
 
 ### Commands
 
@@ -18,6 +26,12 @@ Run `safeagent` from anywhere to start a containerised instance of your agent.
 safeagent
 ```
 
+#### Create a project in the cwd without starting a session
+
+```sh
+safeagent project create
+```
+
 #### Change/set the profile
 
 ```sh
@@ -25,6 +39,10 @@ safeagent use-profile
 ```
 
 #### Exclude directory or file
+
+Sometimes you will want to exclude certain directories from being mounted into the container. e.g. you might want to exclude your `build` directory so Claude doesn't pollute local builds, or `node_modules` so that you can install modules specific to the container.
+
+NOTE: Exclusions work slightly differently with git worktrees. See the [git worktrees](#git-worktrees) documentation below.
 
 ```sh
 safeagent exclude
@@ -56,13 +74,42 @@ safeagent profiles rm <profile-name>
 
 #### Rebuild a profile
 
+This rebuilds the image used for the profile. At the moment, updating safeagent won't update your images, so you may want to run this after updating safeagent.
+
 ```sh
 safeagent profiles rebuild <profile-id>
 ```
 
 ## Configuration
 
-The following files can be configured:
+The entire `~/.safeagent/.claude` directory is mounted into each container. This allows you to manage things like plugins, etc in one place that gets persisted across sessions.
+
+Common files that you may want to configure:
 
 - `~/.safeagent/.claude/settings.json`
 - `~/.safeagent/.claude/CLAUDE.md`
+
+## Git Worktrees
+
+Git worktrees can get kinda crazy. If you want safeagent to work properly with worktrees, create the project **at the worktree root**. Every subdirectory will use that worktree. But note that the whole worktree will be mounted.
+
+For example, if you have the following structure:
+
+```
+my-repo/
+ - branch-1/
+ - branch-2/
+```
+
+You would do the following to start a safeagent session in `branch-1`:
+
+```sh
+cd my-repo
+safeagent project create
+cd branch-1
+safeagent
+```
+
+### Exclusions
+
+If you add exclusions to the project, these will be exluded for the current worktree only ( better support for this coming soon ).
