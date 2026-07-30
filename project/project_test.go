@@ -396,3 +396,41 @@ func TestService_FindOrCreateForCwd_CreatesWhenNoAncestor(t *testing.T) {
 		t.Errorf("Path = %q, want %q", p.Path, "/home/user/newapp")
 	}
 }
+
+func TestService_SetAuth(t *testing.T) {
+	svc := newTestService(t)
+
+	if _, _, err := svc.GetOrCreate("/home/user/myapp"); err != nil {
+		t.Fatalf("GetOrCreate() error = %v", err)
+	}
+
+	if err := svc.SetAuth("/home/user/myapp", "work"); err != nil {
+		t.Fatalf("SetAuth() error = %v", err)
+	}
+
+	p, _, err := svc.GetOrCreate("/home/user/myapp")
+	if err != nil {
+		t.Fatalf("GetOrCreate() after SetAuth error = %v", err)
+	}
+	if p.AuthName != "work" {
+		t.Errorf("AuthName = %q, want %q", p.AuthName, "work")
+	}
+}
+
+func TestService_SetAuth_ErrorsForUnknown(t *testing.T) {
+	svc := newTestService(t)
+	if err := svc.SetAuth("/nonexistent", "work"); err == nil {
+		t.Error("SetAuth() expected error for unknown project, got nil")
+	}
+}
+
+func TestStore_AuthName_DefaultsEmpty(t *testing.T) {
+	svc := newTestService(t)
+	p, _, err := svc.GetOrCreate("/home/user/myapp")
+	if err != nil {
+		t.Fatalf("GetOrCreate() error = %v", err)
+	}
+	if p.AuthName != "" {
+		t.Errorf("new project AuthName = %q, want empty", p.AuthName)
+	}
+}

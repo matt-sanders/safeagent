@@ -40,6 +40,10 @@ var projectCreateCmd = &cobra.Command{
 			return err
 		}
 
+		if _, err := promptAndSetAuth(proj.Path); err != nil {
+			return err
+		}
+
 		return nil
 	},
 }

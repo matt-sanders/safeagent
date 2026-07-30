@@ -15,6 +15,7 @@ type Project struct {
 	ID         string   `json:"id"`
 	Path       string   `json:"path"`
 	ProfileID  string   `json:"profile_id,omitempty"`
+	AuthName   string   `json:"auth_name,omitempty"`
 	Exclusions []string `json:"exclusions,omitempty"`
 }
 
@@ -126,6 +127,23 @@ func (s *Store) SetProfile(path string, profileID string) error {
 	for i, p := range projects {
 		if p.Path == path {
 			projects[i].ProfileID = profileID
+			return s.save(projects)
+		}
+	}
+
+	return fmt.Errorf("project %q not found", path)
+}
+
+// SetAuth sets the auth identity name for the project at the given path.
+func (s *Store) SetAuth(path string, name string) error {
+	projects, err := s.Load()
+	if err != nil {
+		return err
+	}
+
+	for i, p := range projects {
+		if p.Path == path {
+			projects[i].AuthName = name
 			return s.save(projects)
 		}
 	}

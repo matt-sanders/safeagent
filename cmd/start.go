@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"safeagent/auth"
 	"safeagent/docker"
 )
 
@@ -41,6 +42,21 @@ func startSession() error {
 		return fmt.Errorf("profile %s not found: %w", proj.ProfileID, err)
 	}
 
+	// Resolve the auth identity: prompt only for brand-new projects; existing
+	// projects with no saved identity resolve to the default silently.
+	if created {
+		name, err := promptAndSetAuth(proj.Path)
+		if err != nil {
+			return err
+		}
+		proj.AuthName = name
+	}
+	authName := auth.Resolve(proj.AuthName)
+	if err := authService.EnsureDir(authName); err != nil {
+		return err
+	}
+	claudeDir := authService.DirFor(authName)
+
 	// Ensure Docker image exists for this profile
 	imageName := fmt.Sprintf("safeagent-profile-%s:latest", prof.ID)
 	imageExists, err := dockerService.ImageExists(imageName)
@@ -66,16 +82,16 @@ func startSession() error {
 		return fmt.Errorf("cwd %q is not within project root %q", cwd, proj.Path)
 	}
 
-	mounts := buildMounts(proj.Path, cwd, proj.Exclusions)
+	mounts := buildMounts(proj.Path, cwd, claudeDir, proj.Exclusions)
 
-	fmt.Printf("Starting Claude in %s with profile %q (node %s)...\n", cwd, prof.Name, prof.NodeVersion)
+	fmt.Printf("Starting Claude in %s with profile %q (node %s) as %q...\n", cwd, prof.Name, prof.NodeVersion, authName)
 	return dockerService.Run(imageName, cwd, mounts, []string{"claude", "--dangerously-skip-permissions"})
 }
 
-func buildMounts(projectPath, cwd string, exclusions []string) []docker.Mount {
+func buildMounts(projectPath, cwd, claudeDir string, exclusions []string) []docker.Mount {
 	mounts := []docker.Mount{
 		{Source: projectPath, Target: projectPath},
-		{Source: filepath.Join(configDir, ".claude"), Target: "/claude"},
+		{Source: claudeDir, Target: "/claude"},
 	}
 
 	// Excluded paths get anonymous volumes that shadow the bind mount,

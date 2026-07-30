@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//claude/container-projects/**)",
+      "Read(//claude/container-projects/workspace/**)",
+      "Bash(git -C /workspace status --short)"
+    ]
+  }
+}

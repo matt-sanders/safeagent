@@ -20,6 +20,11 @@ func (s *Service) SetProfile(path string, profileID string) error {
 	return s.store.SetProfile(path, profileID)
 }
 
+// SetAuth sets the auth identity name for the project at the given path.
+func (s *Service) SetAuth(path string, name string) error {
+	return s.store.SetAuth(path, name)
+}
+
 // GetExclusions returns the exclusions for the project at the given path.
 func (s *Service) GetExclusions(path string) ([]string, error) {
 	proj, _, err := s.store.GetOrCreate(path)

@@ -15,6 +15,8 @@ To solve this, we'll put the agent in jail by running it inside Docker.
 
 **Project**: A project is a set of configurations for a particular directory. These are things like the profile safeagent uses, any directory exclusions, etc. Whenever you start safeagent for the first time in a directory, it will ask you to create a project and link it to a profile.
 
+**Auth identity**: An auth identity is a separate Claude Code login (its own credentials, settings, plugins, and history), kept in its own directory. Projects pick an identity so you can switch between different Claude logins (e.g. personal vs work) without logging in and out. The `default` identity always exists.
+
 ## Build & Installation
 
 You'll need to build safeagent before you can use it.
@@ -99,14 +101,48 @@ This rebuilds the image used for the profile. At the moment, updating safeagent 
 safeagent profiles rebuild <profile-id>
 ```
 
+## Authentication
+
+Each project uses an **auth identity** — an isolated Claude Code login. You pick one when a project is created (defaulting to `default`), and can change it any time.
+
+Identities live in `~/.safeagent/auth/<name>/.claude` and are mounted into the container at `/claude`. Because each identity is a full, independent config directory, settings, plugins, and `CLAUDE.md` are **not** shared between identities (yet).
+
+The first session that uses an identity with no saved login runs Claude Code's normal `/login` flow; the credentials then persist for that identity.
+
+### Commands
+
+#### List identities
+
+```sh
+safeagent auth
+```
+
+#### Create an identity
+
+```sh
+safeagent auth create
+```
+
+#### Remove an identity
+
+```sh
+safeagent auth rm <name>
+```
+
+#### Change the identity for the current project
+
+```sh
+safeagent use-auth
+```
+
 ## Configuration
 
-The entire `~/.safeagent/.claude` directory is mounted into each container. This allows you to manage things like plugins, etc in one place that gets persisted across sessions.
+The auth identity's directory (`~/.safeagent/auth/<name>/.claude`) is mounted into each container at `/claude`. This is where per-identity plugins, settings, and login state are persisted across sessions. Upgrading from an older safeagent automatically moves your existing `~/.safeagent/.claude` to the `default` identity.
 
-Common files that you may want to configure:
+Common files you may want to configure (per identity):
 
-- `~/.safeagent/.claude/settings.json`
-- `~/.safeagent/.claude/CLAUDE.md`
+- `~/.safeagent/auth/<name>/.claude/settings.json`
+- `~/.safeagent/auth/<name>/.claude/CLAUDE.md`
 
 ## Git Worktrees
 

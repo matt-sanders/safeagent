@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"safeagent/auth"
 	"safeagent/config"
 	"safeagent/docker"
 	"safeagent/profile"
@@ -17,6 +18,7 @@ var (
 	profileService *profile.Service
 	projectService *project.Service
 	dockerService  *docker.Service
+	authService    *auth.Service
 	configDir      string
 
 	rootCmd = &cobra.Command{
@@ -37,6 +39,10 @@ var (
 			projectStore := project.NewStore(filepath.Join(configDir, "projects.json"))
 			projectService = project.NewService(projectStore)
 			dockerService = docker.NewService()
+			if err := config.MigrateAuthLayout(configDir); err != nil {
+				return err
+			}
+			authService = auth.NewService(filepath.Join(configDir, "auth"))
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
