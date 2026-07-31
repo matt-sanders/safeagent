@@ -67,6 +67,7 @@ func startSession() error {
 		fmt.Printf("Building Docker image for profile %q (node %s)...\n", prof.Name, prof.NodeVersion)
 		buildArgs := map[string]string{
 			"NODE_VERSION": prof.NodeVersion,
+			"BUN_VERSION":  prof.BunVersion,
 		}
 		if err := dockerService.BuildImage(imageName, docker.Dockerfile, buildArgs); err != nil {
 			return err

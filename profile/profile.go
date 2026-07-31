@@ -14,6 +14,7 @@ type Profile struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
 	NodeVersion string `json:"node_version"`
+	BunVersion  string `json:"bun_version,omitempty"`
 }
 
 // Store handles profile persistence to a JSON file.

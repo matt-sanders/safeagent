@@ -14,6 +14,7 @@ var profilesCreateCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		var name string
 		var nodeVersion string
+		var bunVersion string
 
 		form := huh.NewForm(
 			huh.NewGroup(
@@ -35,6 +36,9 @@ var profilesCreateCmd = &cobra.Command{
 						}
 						return nil
 					}),
+				huh.NewInput().
+					Title("Bun version (leave empty to skip)").
+					Value(&bunVersion),
 			),
 		)
 
@@ -42,7 +46,7 @@ var profilesCreateCmd = &cobra.Command{
 			return fmt.Errorf("form cancelled: %w", err)
 		}
 
-		p, err := profileService.Create(strings.TrimSpace(name), strings.TrimSpace(nodeVersion))
+		p, err := profileService.Create(strings.TrimSpace(name), strings.TrimSpace(nodeVersion), strings.TrimSpace(bunVersion))
 		if err != nil {
 			return err
 		}

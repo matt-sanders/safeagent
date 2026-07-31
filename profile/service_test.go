@@ -16,7 +16,7 @@ func newTestService(t *testing.T) *Service {
 func TestService_Create(t *testing.T) {
 	svc := newTestService(t)
 
-	p, err := svc.Create("default", "22")
+	p, err := svc.Create("default", "22", "")
 	if err != nil {
 		t.Fatalf("Create() error = %v", err)
 	}
@@ -37,11 +37,11 @@ func TestService_Create(t *testing.T) {
 func TestService_Create_RejectsDuplicate(t *testing.T) {
 	svc := newTestService(t)
 
-	_, err := svc.Create("dupe", "20")
+	_, err := svc.Create("dupe", "20", "")
 	if err != nil {
 		t.Fatalf("Create() first error = %v", err)
 	}
-	_, err = svc.Create("dupe", "22")
+	_, err = svc.Create("dupe", "22", "")
 	if err == nil {
 		t.Error("Create() expected error for duplicate name, got nil")
 	}
@@ -58,8 +58,8 @@ func TestService_List(t *testing.T) {
 		t.Errorf("expected 0 profiles, got %d", len(profiles))
 	}
 
-	_, _ = svc.Create("first", "20")
-	_, _ = svc.Create("second", "22")
+	_, _ = svc.Create("first", "20", "")
+	_, _ = svc.Create("second", "22", "")
 
 	profiles, err = svc.List()
 	if err != nil {
@@ -73,7 +73,7 @@ func TestService_List(t *testing.T) {
 func TestService_GetByID(t *testing.T) {
 	svc := newTestService(t)
 
-	created, _ := svc.Create("default", "22")
+	created, _ := svc.Create("default", "22", "")
 
 	p, err := svc.GetByID(created.ID)
 	if err != nil {
@@ -110,7 +110,7 @@ func TestService_Create_UniqueIDs(t *testing.T) {
 
 	names := []string{"a", "b", "c", "d", "e"}
 	for _, name := range names {
-		if _, err := svc.Create(name, "22"); err != nil {
+		if _, err := svc.Create(name, "22", ""); err != nil {
 			t.Fatalf("Create() error for %q: %v", name, err)
 		}
 	}
