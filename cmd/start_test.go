@@ -1,10 +1,14 @@
 package cmd
 
-import "testing"
+import (
+	"testing"
+
+	"safeagent/auth"
+)
 
 func TestBuildMounts_IncludesProjectAndIdentityClaudeDir(t *testing.T) {
 	claudeDir := "/home/user/.safeagent/auth/work/.claude"
-	mounts := buildMounts("/home/user/myapp", "/home/user/myapp", claudeDir, nil)
+	mounts := buildMounts("/home/user/myapp", "/home/user/myapp", claudeDir, nil, nil)
 
 	if len(mounts) != 2 {
 		t.Fatalf("mounts len = %d, want 2", len(mounts))
@@ -17,9 +21,24 @@ func TestBuildMounts_IncludesProjectAndIdentityClaudeDir(t *testing.T) {
 	}
 }
 
+func TestBuildMounts_AddsAuthMounts(t *testing.T) {
+	claudeDir := "/x/.claude"
+	authMounts := []auth.Mount{
+		{Source: "/host/gh", Target: "/home/developer/.config/gh"},
+	}
+	mounts := buildMounts("/home/user/myapp", "/home/user/myapp", claudeDir, nil, authMounts)
+
+	if len(mounts) != 3 {
+		t.Fatalf("mounts len = %d, want 3", len(mounts))
+	}
+	if mounts[2].Source != "/host/gh" || mounts[2].Target != "/home/developer/.config/gh" {
+		t.Errorf("auth mount = %+v, want source=/host/gh target=/home/developer/.config/gh", mounts[2])
+	}
+}
+
 func TestBuildMounts_AddsExclusionAnonymousVolumes(t *testing.T) {
 	claudeDir := "/x/.claude"
-	mounts := buildMounts("/home/user/myapp", "/home/user/myapp", claudeDir, []string{"node_modules", "build"})
+	mounts := buildMounts("/home/user/myapp", "/home/user/myapp", claudeDir, []string{"node_modules", "build"}, nil)
 
 	if len(mounts) != 4 {
 		t.Fatalf("mounts len = %d, want 4", len(mounts))

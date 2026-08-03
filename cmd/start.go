@@ -83,16 +83,25 @@ func startSession() error {
 		return fmt.Errorf("cwd %q is not within project root %q", cwd, proj.Path)
 	}
 
-	mounts := buildMounts(proj.Path, cwd, claudeDir, proj.Exclusions)
+	authCfg, err := authService.LoadConfig(authName)
+	if err != nil {
+		return err
+	}
+
+	mounts := buildMounts(proj.Path, cwd, claudeDir, proj.Exclusions, authCfg.Mounts)
 
 	fmt.Printf("Starting Claude in %s with profile %q (node %s) as %q...\n", cwd, prof.Name, prof.NodeVersion, authName)
 	return dockerService.Run(imageName, cwd, mounts, []string{"claude", "--dangerously-skip-permissions"})
 }
 
-func buildMounts(projectPath, cwd, claudeDir string, exclusions []string) []docker.Mount {
+func buildMounts(projectPath, cwd, claudeDir string, exclusions []string, authMounts []auth.Mount) []docker.Mount {
 	mounts := []docker.Mount{
 		{Source: projectPath, Target: projectPath},
 		{Source: claudeDir, Target: "/claude"},
+	}
+
+	for _, m := range authMounts {
+		mounts = append(mounts, docker.Mount{Source: m.Source, Target: m.Target})
 	}
 
 	// Excluded paths get anonymous volumes that shadow the bind mount,
