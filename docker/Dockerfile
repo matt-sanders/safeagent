@@ -88,16 +88,6 @@ RUN bash -c "source /home/$USERNAME/.nvm/nvm.sh && nvm install $NODE_VERSION && 
 # Install pnpm
 RUN wget -qO- https://get.pnpm.io/install.sh | ENV="$HOME/.zshrc" SHELL="$(which sh)" sh -
 
-# Install bun (skipped when BUN_VERSION is empty)
-ARG BUN_VERSION=""
-RUN if [ -n "$BUN_VERSION" ]; then \
-  if [ "$BUN_VERSION" = "latest" ]; then \
-    curl -fsSL https://bun.sh/install | bash; \
-  else \
-    curl -fsSL https://bun.sh/install | bash -s "bun-v${BUN_VERSION}"; \
-  fi; \
-fi
-
 # {{PROFILE_EXTENSIONS}}
 
 ENTRYPOINT ["/bin/zsh"]
