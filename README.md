@@ -101,6 +101,20 @@ This rebuilds the image used for the profile. At the moment, updating safeagent 
 safeagent profiles rebuild <profile-id>
 ```
 
+#### Edit the Dockerfile for a profile
+
+Opens a per-profile Dockerfile fragment in `$EDITOR` (falls back to `vim`). Instructions in this file are injected into the image build just before `ENTRYPOINT`, so you can install extra packages or run any setup steps you need. The fragment is stored at `~/.safeagent/profiles/<profile-id>/dockerfile`.
+
+```sh
+safeagent profiles dockerfile <profile-id>
+```
+
+After saving the file, rebuild the profile to apply the changes:
+
+```sh
+safeagent profiles rebuild <profile-id>
+```
+
 ## Authentication
 
 Each project uses an **auth identity** — an isolated Claude Code login. You pick one when a project is created (defaulting to `default`), and can change it any time.
