@@ -23,13 +23,18 @@ var profilesRebuildCmd = &cobra.Command{
 
 		imageName := fmt.Sprintf("safeagent-profile-%s:latest", prof.ID)
 
+		extra, err := profileService.LoadDockerfileExtra(prof.ID)
+		if err != nil {
+			return err
+		}
+
 		// Rebuild the image (replaces the existing tag)
 		fmt.Printf("Rebuilding image for profile %q (node %s)...\n", prof.Name, prof.NodeVersion)
 		buildArgs := map[string]string{
 			"NODE_VERSION": prof.NodeVersion,
 			"BUN_VERSION":  prof.BunVersion,
 		}
-		if err := dockerService.BuildImage(imageName, docker.Dockerfile, buildArgs); err != nil {
+		if err := dockerService.BuildImage(imageName, docker.InjectExtensions(extra), buildArgs); err != nil {
 			return err
 		}
 

@@ -45,6 +45,17 @@ func (s *Service) GetByID(id string) (Profile, error) {
 	return Profile{}, fmt.Errorf("profile %q not found", id)
 }
 
+// DockerfileExtraPath returns the filesystem path for the profile's extra Dockerfile fragment.
+func (s *Service) DockerfileExtraPath(profileID string) string {
+	return s.store.DockerfileExtraPath(profileID)
+}
+
+// LoadDockerfileExtra returns the extra Dockerfile fragment for a profile,
+// or an empty string if none has been written yet.
+func (s *Service) LoadDockerfileExtra(profileID string) (string, error) {
+	return s.store.LoadDockerfileExtra(profileID)
+}
+
 // FormatOption returns a styled string for displaying a profile.
 func (s *Service) FormatOption(p Profile) string {
 	name := nameStyle.Render(p.Name)

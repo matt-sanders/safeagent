@@ -98,4 +98,6 @@ RUN if [ -n "$BUN_VERSION" ]; then \
   fi; \
 fi
 
+# {{PROFILE_EXTENSIONS}}
+
 ENTRYPOINT ["/bin/zsh"]

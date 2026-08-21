@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 )
 
 // Profile represents a named environment configuration.
@@ -81,4 +82,23 @@ func (s *Store) Add(p Profile) (Profile, error) {
 	}
 
 	return p, nil
+}
+
+// DockerfileExtraPath returns the path to the extra Dockerfile fragment for
+// the given profile ID (~/.safeagent/profile-{id}.dockerfile).
+func (s *Store) DockerfileExtraPath(profileID string) string {
+	return filepath.Join(filepath.Dir(s.filePath), "profiles", profileID, "dockerfile")
+}
+
+// LoadDockerfileExtra reads the extra Dockerfile fragment for a profile.
+// Returns an empty string if no file exists yet.
+func (s *Store) LoadDockerfileExtra(profileID string) (string, error) {
+	data, err := os.ReadFile(s.DockerfileExtraPath(profileID))
+	if errors.Is(err, os.ErrNotExist) {
+		return "", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("failed to read extra dockerfile: %w", err)
+	}
+	return string(data), nil
 }
