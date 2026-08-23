@@ -90,7 +90,7 @@ safeagent profiles create
 #### Remove a profile
 
 ```sh
-safeagent profiles rm <profile-name>
+safeagent profiles rm <profile-id>
 ```
 
 #### Rebuild a profile

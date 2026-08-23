@@ -31,6 +31,11 @@ func (s *Service) Create(name, nodeVersion string) (Profile, error) {
 	return s.store.Add(Profile{Name: name, NodeVersion: nodeVersion})
 }
 
+// Remove deletes the profile with the given ID and its data directory.
+func (s *Service) Remove(id string) error {
+	return s.store.Remove(id)
+}
+
 // GetByID returns the profile with the given ID.
 func (s *Service) GetByID(id string) (Profile, error) {
 	profiles, err := s.store.Load()

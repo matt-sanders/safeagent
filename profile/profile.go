@@ -84,6 +84,46 @@ func (s *Store) Add(p Profile) (Profile, error) {
 	return p, nil
 }
 
+// Remove deletes the profile with the given ID from the store and removes its
+// data directory (~/.safeagent/profiles/{id}/).
+// Returns an error if no profile with that ID exists.
+func (s *Store) Remove(id string) error {
+	profiles, err := s.Load()
+	if err != nil {
+		return err
+	}
+
+	idx := -1
+	var target Profile
+	for i, p := range profiles {
+		if p.ID == id {
+			idx = i
+			target = p
+			break
+		}
+	}
+	if idx == -1 {
+		return fmt.Errorf("profile %q not found", id)
+	}
+
+	profiles = append(profiles[:idx], profiles[idx+1:]...)
+
+	data, err := json.MarshalIndent(profiles, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal profiles: %w", err)
+	}
+	if err := os.WriteFile(s.filePath, data, 0600); err != nil {
+		return fmt.Errorf("failed to write profiles file: %w", err)
+	}
+
+	dir := filepath.Join(filepath.Dir(s.filePath), "profiles", target.ID)
+	if err := os.RemoveAll(dir); err != nil {
+		return fmt.Errorf("failed to remove profile directory: %w", err)
+	}
+
+	return nil
+}
+
 // DockerfileExtraPath returns the path to the extra Dockerfile fragment for
 // the given profile ID (~/.safeagent/profile-{id}.dockerfile).
 func (s *Store) DockerfileExtraPath(profileID string) string {
