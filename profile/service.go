@@ -26,9 +26,9 @@ func (s *Service) List() ([]Profile, error) {
 	return s.store.Load()
 }
 
-// Create adds a new profile with the given name, node version, and optional bun version.
-func (s *Service) Create(name, nodeVersion, bunVersion string) (Profile, error) {
-	return s.store.Add(Profile{Name: name, NodeVersion: nodeVersion, BunVersion: bunVersion})
+// Create adds a new profile with the given name and node version.
+func (s *Service) Create(name, nodeVersion string) (Profile, error) {
+	return s.store.Add(Profile{Name: name, NodeVersion: nodeVersion})
 }
 
 // GetByID returns the profile with the given ID.
