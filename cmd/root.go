@@ -20,6 +20,7 @@ var (
 	dockerService  *docker.Service
 	authService    *auth.Service
 	configDir      string
+	shellMode      bool
 
 	rootCmd = &cobra.Command{
 		Use:   "safeagent",
@@ -46,10 +47,14 @@ var (
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return startSession()
+			return startSession(shellMode)
 		},
 	}
 )
+
+func init() {
+	rootCmd.Flags().BoolVar(&shellMode, "shell", false, "Open a shell instead of starting Claude")
+}
 
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {

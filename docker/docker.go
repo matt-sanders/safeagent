@@ -79,7 +79,10 @@ func (s *Service) Run(imageName, workdir string, mounts []Mount, command []strin
 			args = append(args, "-v", fmt.Sprintf("%s:%s", m.Source, m.Target))
 		}
 	}
-	args = append(args, imageName, "-ic", strings.Join(command, " "))
+	args = append(args, imageName)
+	if len(command) > 0 {
+		args = append(args, "-ic", strings.Join(command, " "))
+	}
 
 	cmd := exec.Command("docker", args...)
 	cmd.Stdin = os.Stdin

@@ -9,7 +9,7 @@ import (
 	"safeagent/docker"
 )
 
-func startSession() error {
+func startSession(shellMode bool) error {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("could not determine working directory: %w", err)
@@ -90,8 +90,14 @@ func startSession() error {
 
 	mounts := buildMounts(proj.Path, cwd, claudeDir, proj.Exclusions, authCfg.Mounts)
 
-	fmt.Printf("Starting Claude in %s with profile %q (node %s) as %q...\n", cwd, prof.Name, prof.NodeVersion, authName)
-	return dockerService.Run(imageName, cwd, mounts, []string{"claude", "--dangerously-skip-permissions"})
+	var command []string
+	if shellMode {
+		fmt.Printf("Opening shell in %s with profile %q (node %s) as %q...\n", cwd, prof.Name, prof.NodeVersion, authName)
+	} else {
+		fmt.Printf("Starting Claude in %s with profile %q (node %s) as %q...\n", cwd, prof.Name, prof.NodeVersion, authName)
+		command = []string{"claude", "--dangerously-skip-permissions"}
+	}
+	return dockerService.Run(imageName, cwd, mounts, command)
 }
 
 func buildMounts(projectPath, cwd, claudeDir string, exclusions []string, authMounts []auth.Mount) []docker.Mount {
