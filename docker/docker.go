@@ -92,6 +92,49 @@ func (s *Service) Run(imageName, workdir string, mounts []Mount, command []strin
 	return cmd.Run()
 }
 
+// RunningSession holds information about a running safeagent container.
+type RunningSession struct {
+	ContainerID string
+	ImageName   string
+	WorkingDir  string
+	RunningFor  string
+}
+
+// ListRunningSessions returns all running containers started by safeagent.
+func (s *Service) ListRunningSessions() ([]RunningSession, error) {
+	out, err := exec.Command("docker", "ps", "--format", "{{.ID}}\t{{.Image}}\t{{.RunningFor}}").Output()
+	if err != nil {
+		return nil, fmt.Errorf("docker ps failed: %w", err)
+	}
+
+	var sessions []RunningSession
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		if line == "" {
+			continue
+		}
+		parts := strings.SplitN(line, "\t", 3)
+		if len(parts) != 3 {
+			continue
+		}
+		id, image, runningFor := parts[0], parts[1], parts[2]
+		if !strings.HasPrefix(image, "safeagent-profile-") {
+			continue
+		}
+
+		wdOut, err := exec.Command("docker", "inspect", "--format", "{{.Config.WorkingDir}}", id).Output()
+		if err != nil {
+			continue
+		}
+		sessions = append(sessions, RunningSession{
+			ContainerID: id,
+			ImageName:   image,
+			WorkingDir:  strings.TrimSpace(string(wdOut)),
+			RunningFor:  runningFor,
+		})
+	}
+	return sessions, nil
+}
+
 // RemoveImage removes a Docker image. Returns an error if removal fails.
 func (s *Service) RemoveImage(imageName string) error {
 	cmd := exec.Command("docker", "rmi", imageName)
