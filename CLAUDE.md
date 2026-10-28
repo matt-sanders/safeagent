@@ -4,7 +4,7 @@
 
 ### Issue tracker
 
-Issues are local markdown files under `.scratch/<feature>/`. See `docs/agents/issue-tracker.md`.
+Issues are local markdown files under `~/safeagent-docs/.scratch/<feature>/` (outside the repo). See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
@@ -12,4 +12,4 @@ Uses the default five labels (`needs-triage`, `needs-info`, `ready-for-agent`, `
 
 ### Domain docs
 
-Single-context: one root `CONTEXT.md` plus `docs/adr/`. See `docs/agents/domain.md`.
+Single-context: one root `GLOSSARY.md` plus `docs/adr/`. See `docs/agents/domain.md`.
