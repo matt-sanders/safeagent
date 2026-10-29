@@ -1,10 +1,6 @@
 package image
 
-import (
-	"strings"
-
-	"safeagent/docker"
-)
+import "safeagent/docker"
 
 // ListForStack returns every existing safeagent Image built for the Stack
 // with the given ID (any Profile).
@@ -25,12 +21,8 @@ func listMatching(d docker.Docker, match func(stackID, profileID string) bool) (
 	}
 	var out []string
 	for _, ref := range refs {
-		rest, ok := strings.CutPrefix(ref, docker.Repository+"/")
-		if !ok {
-			continue
-		}
-		stackID, profileID, ok := strings.Cut(rest, ":")
-		if ok && match(stackID, profileID) {
+		pair, ok := splitRef(ref)
+		if ok && match(pair.StackID, pair.ProfileID) {
 			out = append(out, ref)
 		}
 	}

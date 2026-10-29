@@ -19,7 +19,7 @@ func newProfileCommand(deps Deps) *cobra.Command {
 		Short: "Manage Profiles (the agent's identity)",
 		Args:  cobra.NoArgs,
 	}
-	c.AddCommand(newProfileCreateCommand(deps), newProfileLsCommand(deps), newProfileRmCommand(deps))
+	c.AddCommand(newProfileCreateCommand(deps), newProfileLsCommand(deps), newProfileRmCommand(deps), newProfileDockerfileCommand(deps), newProfileRebuildCommand(deps))
 	c.AddCommand(newProfileMountsCommand(deps))
 	return c
 }
