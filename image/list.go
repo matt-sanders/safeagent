@@ -1,6 +1,8 @@
 package image
 
-import "safeagent/docker"
+import (
+	"safeagent/docker"
+)
 
 // ListForStack returns every existing safeagent Image built for the Stack
 // with the given ID (any Profile).
@@ -15,15 +17,14 @@ func ListForProfile(d docker.Docker, profileID string) ([]string, error) {
 }
 
 func listMatching(d docker.Docker, match func(stackID, profileID string) bool) ([]string, error) {
-	refs, err := d.ListImages()
+	imgs, err := ListExisting(d)
 	if err != nil {
 		return nil, err
 	}
 	var out []string
-	for _, ref := range refs {
-		pair, ok := splitRef(ref)
-		if ok && match(pair.StackID, pair.ProfileID) {
-			out = append(out, ref)
+	for _, img := range imgs {
+		if match(img.StackID, img.ProfileID) {
+			out = append(out, img.Ref)
 		}
 	}
 	return out, nil

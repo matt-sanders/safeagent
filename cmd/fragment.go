@@ -146,7 +146,7 @@ func rebuildProfile(cmd *cobra.Command, deps Deps, p profile.Profile) error {
 		return err
 	}
 	stacks := stack.NewStore(deps.ConfigRoot)
-	return rebuildPairs(cmd, deps, pairs, "profile "+p.Name, func(pair image.Pair) (stack.Stack, profile.Profile, error) {
+	return rebuildPairs(cmd, deps, pairs, "profile "+p.Name, func(pair image.Existing) (stack.Stack, profile.Profile, error) {
 		st, err := stacks.FindByID(pair.StackID)
 		return st, p, err
 	})
@@ -160,7 +160,7 @@ func rebuildStack(cmd *cobra.Command, deps Deps, st stack.Stack) error {
 		return err
 	}
 	profiles := profile.NewStore(deps.ConfigRoot)
-	return rebuildPairs(cmd, deps, pairs, "stack "+st.Name, func(pair image.Pair) (stack.Stack, profile.Profile, error) {
+	return rebuildPairs(cmd, deps, pairs, "stack "+st.Name, func(pair image.Existing) (stack.Stack, profile.Profile, error) {
 		p, err := profiles.FindByID(pair.ProfileID)
 		return st, p, err
 	})
@@ -169,7 +169,7 @@ func rebuildStack(cmd *cobra.Command, deps Deps, st stack.Stack) error {
 // rebuildPairs builds each pair with the same build as session start. A pair
 // whose other half no longer has a record can't be built, so it is skipped
 // with a note.
-func rebuildPairs(cmd *cobra.Command, deps Deps, pairs []image.Pair, what string, resolve func(image.Pair) (stack.Stack, profile.Profile, error)) error {
+func rebuildPairs(cmd *cobra.Command, deps Deps, pairs []image.Existing, what string, resolve func(image.Existing) (stack.Stack, profile.Profile, error)) error {
 	out := cmd.OutOrStdout()
 	if len(pairs) == 0 {
 		fmt.Fprintf(out, "No existing images use %s; nothing to rebuild.\n", what)
