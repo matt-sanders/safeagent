@@ -55,6 +55,7 @@ func newProfileMountsAddCommand(deps Deps) *cobra.Command {
 			}
 			out := cmd.OutOrStdout()
 			fmt.Fprintf(out, "Profile folder (for reference): %s\n", store.Dir(prof.ID))
+			fmt.Fprintf(out, "Container home directory: /home/developer\n")
 
 			var fields []huh.Field
 			if !cmd.Flags().Changed("host") {
