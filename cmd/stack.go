@@ -19,7 +19,7 @@ func newStackCommand(deps Deps) *cobra.Command {
 		Short: "Manage Stacks (the software a session runs with)",
 		Args:  cobra.NoArgs,
 	}
-	c.AddCommand(newStackCreateCommand(deps), newStackLsCommand(deps), newStackDockerfileCommand(deps), newStackRebuildCommand(deps))
+	c.AddCommand(newStackCreateCommand(deps), newStackLsCommand(deps), newStackRmCommand(deps), newStackDockerfileCommand(deps), newStackRebuildCommand(deps))
 	return c
 }
 
