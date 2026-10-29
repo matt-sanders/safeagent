@@ -167,3 +167,76 @@ func (s *Store) Remove(id string) error {
 	}
 	return nil
 }
+
+// ClaudeMountPath is where every Session sees the Profile's Claude config
+// folder; no Mount may use it.
+const ClaudeMountPath = "/claude"
+
+// AddMount validates m and appends it to the named Profile's Mounts. The host
+// path must exist; the container path must be absolute, not /claude, and not
+// already used by another of the Profile's Mounts. Paths are cleaned.
+func (s *Store) AddMount(name string, m Mount) (Mount, error) {
+	profiles, err := s.List()
+	if err != nil {
+		return Mount{}, err
+	}
+	i := indexByName(profiles, name)
+	if i < 0 {
+		return Mount{}, fmt.Errorf("no profile named %q", name)
+	}
+	if m.HostPath == "" {
+		return Mount{}, errors.New("host path is required")
+	}
+	host, err := filepath.Abs(m.HostPath)
+	if err != nil {
+		return Mount{}, err
+	}
+	if _, err := os.Stat(host); err != nil {
+		return Mount{}, fmt.Errorf("host path %s does not exist", host)
+	}
+	if !filepath.IsAbs(m.ContainerPath) {
+		return Mount{}, fmt.Errorf("container path %q must be absolute", m.ContainerPath)
+	}
+	target := filepath.Clean(m.ContainerPath)
+	if target == ClaudeMountPath {
+		return Mount{}, fmt.Errorf("container path %s is reserved for the Profile's Claude config", ClaudeMountPath)
+	}
+	for _, existing := range profiles[i].Mounts {
+		if existing.ContainerPath == target {
+			return Mount{}, fmt.Errorf("profile %q already has a mount at %s", name, target)
+		}
+	}
+	added := Mount{HostPath: host, ContainerPath: target}
+	profiles[i].Mounts = append(profiles[i].Mounts, added)
+	return added, s.save(profiles)
+}
+
+// RemoveMount removes the named Profile's Mount at containerPath.
+func (s *Store) RemoveMount(name, containerPath string) error {
+	profiles, err := s.List()
+	if err != nil {
+		return err
+	}
+	i := indexByName(profiles, name)
+	if i < 0 {
+		return fmt.Errorf("no profile named %q", name)
+	}
+	target := filepath.Clean(containerPath)
+	mounts := profiles[i].Mounts
+	for j, m := range mounts {
+		if m.ContainerPath == target {
+			profiles[i].Mounts = append(mounts[:j:j], mounts[j+1:]...)
+			return s.save(profiles)
+		}
+	}
+	return fmt.Errorf("profile %q has no mount at %s", name, target)
+}
+
+func indexByName(profiles []Profile, name string) int {
+	for i, p := range profiles {
+		if p.Name == name {
+			return i
+		}
+	}
+	return -1
+}
