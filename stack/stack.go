@@ -135,3 +135,27 @@ func (s *Store) FindByID(id string) (Stack, error) {
 	}
 	return Stack{}, fmt.Errorf("no stack with ID %q", id)
 }
+
+// Remove deletes the Stack record with the given ID and its folder.
+func (s *Store) Remove(id string) error {
+	stacks, err := s.List()
+	if err != nil {
+		return err
+	}
+	kept := make([]Stack, 0, len(stacks))
+	for _, st := range stacks {
+		if st.ID != id {
+			kept = append(kept, st)
+		}
+	}
+	if len(kept) == len(stacks) {
+		return fmt.Errorf("no stack with ID %q", id)
+	}
+	if err := s.save(kept); err != nil {
+		return err
+	}
+	if err := os.RemoveAll(s.Dir(id)); err != nil {
+		return fmt.Errorf("removing stack folder: %w", err)
+	}
+	return nil
+}

@@ -45,15 +45,3 @@ func ListExisting(d docker.Docker) ([]Existing, error) {
 	}
 	return out, nil
 }
-
-// Matching returns the Images among imgs built from stackID or profileID (for
-// `stack rm|rebuild` / `profile rm|rebuild`). An empty ID matches nothing.
-func Matching(imgs []Existing, stackID, profileID string) []Existing {
-	var out []Existing
-	for _, img := range imgs {
-		if (stackID != "" && img.StackID == stackID) || (profileID != "" && img.ProfileID == profileID) {
-			out = append(out, img)
-		}
-	}
-	return out
-}

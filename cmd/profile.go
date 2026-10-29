@@ -19,7 +19,7 @@ func newProfileCommand(deps Deps) *cobra.Command {
 		Short: "Manage Profiles (the agent's identity)",
 		Args:  cobra.NoArgs,
 	}
-	c.AddCommand(newProfileCreateCommand(deps), newProfileLsCommand(deps))
+	c.AddCommand(newProfileCreateCommand(deps), newProfileLsCommand(deps), newProfileRmCommand(deps))
 	return c
 }
 
