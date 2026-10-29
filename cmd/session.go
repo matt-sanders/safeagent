@@ -128,14 +128,33 @@ func sessionLabels(p project.Project) map[string]string {
 // is true). Anything that depends on cwd (e.g. Exclusions) belongs here; mounts
 // that depend only on the Project belong in sessionMounts.
 func sessionRunRequest(deps Deps, p project.Project, cwd string, shell bool) (docker.RunRequest, error) {
+	mounts, err := sessionMounts(deps, p)
+	if err != nil {
+		return docker.RunRequest{}, err
+	}
+	if err := checkProfileMountsAvoidProject(p, mounts); err != nil {
+		return docker.RunRequest{}, err
+	}
 	req := docker.RunRequest{
 		Image:   image.Ref(p.StackID, p.ProfileID),
 		Workdir: cwd,
-		Mounts:  sessionMounts(deps, p),
+		Mounts:  mounts,
 		Labels:  sessionLabels(p),
 	}
 	if !shell {
 		req.Command = claudeCommand
 	}
 	return req, nil
+}
+
+// checkProfileMountsAvoidProject fails when a Profile Mount targets the
+// Project path, where the Project itself is mounted. mounts[0] is the Project
+// mount (see sessionMounts).
+func checkProfileMountsAvoidProject(p project.Project, mounts []docker.Mount) error {
+	for _, m := range mounts[1:] {
+		if m.Target == p.Path {
+			return fmt.Errorf("the project's profile has a mount (host %s) at the project path %s; remove it with `safeagent profile mounts rm <profile> %s`", m.Source, p.Path, p.Path)
+		}
+	}
+	return nil
 }

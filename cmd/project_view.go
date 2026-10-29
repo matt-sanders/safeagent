@@ -68,12 +68,27 @@ func imageState(deps Deps, p project.Project) (string, error) {
 }
 
 // sessionMounts returns the mounts a Session in p gets: the Project at its own
-// path and the Profile's Claude config folder at /claude.
-func sessionMounts(deps Deps, p project.Project) []docker.Mount {
-	return []docker.Mount{
+// path, the Profile's Claude config folder at /claude, then the Profile's
+// Mounts (none if the Profile no longer exists).
+func sessionMounts(deps Deps, p project.Project) ([]docker.Mount, error) {
+	store := profile.NewStore(deps.ConfigRoot)
+	mounts := []docker.Mount{
 		{Source: p.Path, Target: p.Path},
-		{Source: profile.NewStore(deps.ConfigRoot).ClaudeDir(p.ProfileID), Target: "/claude"},
+		{Source: store.ClaudeDir(p.ProfileID), Target: profile.ClaudeMountPath},
 	}
+	profiles, err := store.List()
+	if err != nil {
+		return nil, err
+	}
+	for _, prof := range profiles {
+		if prof.ID != p.ProfileID {
+			continue
+		}
+		for _, m := range prof.Mounts {
+			mounts = append(mounts, docker.Mount{Source: m.HostPath, Target: m.ContainerPath})
+		}
+	}
+	return mounts, nil
 }
 
 func newProjectLsCommand(deps Deps) *cobra.Command {
@@ -131,9 +146,13 @@ func newProjectInspectCommand(deps Deps) *cobra.Command {
 			if err := tw.Flush(); err != nil {
 				return err
 			}
+			mounts, err := sessionMounts(deps, p)
+			if err != nil {
+				return err
+			}
 			fmt.Fprintln(out, "\nMounts:")
 			var rows [][]string
-			for _, m := range sessionMounts(deps, p) {
+			for _, m := range mounts {
 				rows = append(rows, []string{m.Source, m.Target})
 			}
 			return table.Print(out, "No mounts.", []string{"HOST", "CONTAINER"}, rows)

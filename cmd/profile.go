@@ -20,6 +20,7 @@ func newProfileCommand(deps Deps) *cobra.Command {
 		Args:  cobra.NoArgs,
 	}
 	c.AddCommand(newProfileCreateCommand(deps), newProfileLsCommand(deps))
+	c.AddCommand(newProfileMountsCommand(deps))
 	return c
 }
 
