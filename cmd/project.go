@@ -18,7 +18,7 @@ func newProjectCommand(deps Deps) *cobra.Command {
 		Short: "Manage Projects (the directories sessions work in)",
 		Args:  cobra.NoArgs,
 	}
-	c.AddCommand(newProjectCreateCommand(deps), newProjectRmCommand(deps))
+	c.AddCommand(newProjectCreateCommand(deps), newProjectRmCommand(deps), newProjectLsCommand(deps), newProjectInspectCommand(deps))
 	return c
 }
 
