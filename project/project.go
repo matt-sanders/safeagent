@@ -131,6 +131,22 @@ func (s *Store) Remove(path string) error {
 	return fmt.Errorf("%w at %s", ErrNotFound, path)
 }
 
+// Update replaces the stored Project at exactly p.Path with p. The error
+// wraps ErrNotFound if there is none.
+func (s *Store) Update(p Project) error {
+	projects, err := s.List()
+	if err != nil {
+		return err
+	}
+	for i, existing := range projects {
+		if existing.Path == p.Path {
+			projects[i] = p
+			return s.save(projects)
+		}
+	}
+	return fmt.Errorf("%w at %s", ErrNotFound, p.Path)
+}
+
 // CountByProfile returns how many Projects use each Profile ID.
 func (s *Store) CountByProfile() (map[string]int, error) {
 	return s.count(func(p Project) string { return p.ProfileID })
