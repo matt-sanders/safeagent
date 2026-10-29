@@ -53,7 +53,9 @@ func TestProjectInspectWithFlagShowsDetailsAndBaseMounts(t *testing.T) {
 		"\nMounts:\n" +
 		"HOST" + strings.Repeat(" ", len(claude)-4) + "  CONTAINER\n" +
 		dir + strings.Repeat(" ", len(claude)-len(dir)) + "  " + dir + "\n" +
-		claude + "  /claude\n"
+		claude + "  /claude\n" +
+		"\nExclusions:\n" +
+		"No exclusions.\n"
 	if out != want {
 		t.Fatalf("got:\n%s\nwant:\n%s", out, want)
 	}

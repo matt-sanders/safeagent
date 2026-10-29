@@ -182,3 +182,61 @@ func (s *Store) save(projects []Project) error {
 	}
 	return nil
 }
+
+// CleanExclusion validates an Exclusion and returns it in canonical form.
+// Exclusions are relative to the directory a Session starts in, so absolute
+// paths and paths that climb out of it are rejected.
+func CleanExclusion(path string) (string, error) {
+	if strings.TrimSpace(path) == "" {
+		return "", errors.New("exclusion path must not be empty")
+	}
+	if filepath.IsAbs(path) {
+		return "", fmt.Errorf("exclusion %q must be relative to the session's start directory, not absolute", path)
+	}
+	clean := filepath.Clean(path)
+	if clean == "." || clean == ".." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("exclusion %q must name a path inside the session's start directory", path)
+	}
+	return clean, nil
+}
+
+// AddExclusion adds an Exclusion (cleaned with CleanExclusion) to the Project
+// at exactly projectPath, rejecting one that is already there. It returns the
+// stored form.
+func (s *Store) AddExclusion(projectPath, exclusion string) (string, error) {
+	clean, err := CleanExclusion(exclusion)
+	if err != nil {
+		return "", err
+	}
+	p, err := s.Get(projectPath)
+	if err != nil {
+		return "", err
+	}
+	for _, e := range p.Exclusions {
+		if e == clean {
+			return "", fmt.Errorf("%s is already excluded in project %s", clean, p.Path)
+		}
+	}
+	p.Exclusions = append(p.Exclusions, clean)
+	return clean, s.Update(p)
+}
+
+// RemoveExclusion removes an Exclusion from the Project at exactly
+// projectPath, erroring if it isn't there. It returns the stored form.
+func (s *Store) RemoveExclusion(projectPath, exclusion string) (string, error) {
+	clean, err := CleanExclusion(exclusion)
+	if err != nil {
+		return "", err
+	}
+	p, err := s.Get(projectPath)
+	if err != nil {
+		return "", err
+	}
+	for i, e := range p.Exclusions {
+		if e == clean {
+			p.Exclusions = append(p.Exclusions[:i], p.Exclusions[i+1:]...)
+			return clean, s.Update(p)
+		}
+	}
+	return "", fmt.Errorf("%s is not excluded in project %s", clean, p.Path)
+}

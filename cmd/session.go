@@ -3,6 +3,7 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"path/filepath"
 
 	"safeagent/docker"
 	"safeagent/image"
@@ -134,8 +135,20 @@ func sessionRunRequest(deps Deps, p project.Project, cwd string, shell bool) (do
 		Mounts:  sessionMounts(deps, p),
 		Labels:  sessionLabels(p),
 	}
+	req.Mounts = append(req.Mounts, exclusionMounts(p, cwd)...)
 	if !shell {
 		req.Command = claudeCommand
 	}
 	return req, nil
+}
+
+// exclusionMounts hides each of p's Exclusions with an anonymous volume at
+// that path relative to cwd (not the Project path), so they work per
+// worktree or subdirectory.
+func exclusionMounts(p project.Project, cwd string) []docker.Mount {
+	mounts := make([]docker.Mount, len(p.Exclusions))
+	for i, e := range p.Exclusions {
+		mounts[i] = docker.Mount{Target: filepath.Join(cwd, e)}
+	}
+	return mounts
 }

@@ -136,7 +136,12 @@ func newProjectInspectCommand(deps Deps) *cobra.Command {
 			for _, m := range sessionMounts(deps, p) {
 				rows = append(rows, []string{m.Source, m.Target})
 			}
-			return table.Print(out, "No mounts.", []string{"HOST", "CONTAINER"}, rows)
+			if err := table.Print(out, "No mounts.", []string{"HOST", "CONTAINER"}, rows); err != nil {
+				return err
+			}
+
+			fmt.Fprintln(out, "\nExclusions:")
+			return printExclusions(cmd, p.Exclusions)
 		},
 	}
 	addProjectFlag(c, &path)
