@@ -71,18 +71,19 @@ func (s *Store) List() ([]Profile, error) {
 	return profiles, nil
 }
 
-// FindByName returns the Profile with name, or ok=false if none has it.
-func (s *Store) FindByName(name string) (Profile, bool, error) {
+// FindByName returns the Profile with the given Name, or an error naming it
+// if there is none.
+func (s *Store) FindByName(name string) (Profile, error) {
 	profiles, err := s.List()
 	if err != nil {
-		return Profile{}, false, err
+		return Profile{}, err
 	}
 	for _, p := range profiles {
 		if p.Name == name {
-			return p, true, nil
+			return p, nil
 		}
 	}
-	return Profile{}, false, nil
+	return Profile{}, fmt.Errorf("no profile named %q", name)
 }
 
 // Create validates name, then stores a new Profile with a fresh ID and

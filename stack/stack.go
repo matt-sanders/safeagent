@@ -1,0 +1,122 @@
+// Package stack manages Stacks: the "what" of a session. Records live in
+// stacks.json under the v2 root, and each Stack has a stacks/<id>/ folder
+// holding its Dockerfile fragment.
+package stack
+
+import (
+	"encoding/json"
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+
+	"safeagent/ident"
+)
+
+// DefaultNode is the node version offered when creating a Stack.
+const DefaultNode = "lts"
+
+// Stack is one Stack record. Node is fixed once created.
+type Stack struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	Node string `json:"node"`
+}
+
+// Store is the file-backed list of Stacks under a v2 root.
+type Store struct {
+	root string
+}
+
+// NewStore returns a Store rooted at the v2 config root.
+func NewStore(root string) *Store {
+	return &Store{root: root}
+}
+
+func (s *Store) recordsPath() string {
+	return filepath.Join(s.root, "stacks.json")
+}
+
+// Dir is the folder for the Stack with the given ID.
+func (s *Store) Dir(id string) string {
+	return filepath.Join(s.root, "stacks", id)
+}
+
+// DockerfilePath is the Dockerfile fragment for the Stack with the given ID.
+func (s *Store) DockerfilePath(id string) string {
+	return filepath.Join(s.Dir(id), "Dockerfile")
+}
+
+// List returns every Stack in creation order.
+func (s *Store) List() ([]Stack, error) {
+	data, err := os.ReadFile(s.recordsPath())
+	if errors.Is(err, os.ErrNotExist) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var stacks []Stack
+	if err := json.Unmarshal(data, &stacks); err != nil {
+		return nil, fmt.Errorf("reading %s: %w", s.recordsPath(), err)
+	}
+	return stacks, nil
+}
+
+// FindByName returns the Stack with the given Name, or an error naming it if
+// there is none.
+func (s *Store) FindByName(name string) (Stack, error) {
+	stacks, err := s.List()
+	if err != nil {
+		return Stack{}, err
+	}
+	for _, st := range stacks {
+		if st.Name == name {
+			return st, nil
+		}
+	}
+	return Stack{}, fmt.Errorf("no stack named %q", name)
+}
+
+// Create validates name, adds a new Stack with a generated ID and creates its
+// folder with an empty Dockerfile fragment. An empty node means DefaultNode.
+func (s *Store) Create(name, node string) (Stack, error) {
+	if err := ident.ValidateName(name); err != nil {
+		return Stack{}, err
+	}
+	if node == "" {
+		node = DefaultNode
+	}
+	stacks, err := s.List()
+	if err != nil {
+		return Stack{}, err
+	}
+	for _, st := range stacks {
+		if st.Name == name {
+			return Stack{}, fmt.Errorf("a stack named %q already exists", name)
+		}
+	}
+
+	st := Stack{ID: ident.NewID(), Name: name, Node: node}
+	if err := os.MkdirAll(s.Dir(st.ID), 0o755); err != nil {
+		return Stack{}, err
+	}
+	if err := os.WriteFile(s.DockerfilePath(st.ID), nil, 0o644); err != nil {
+		return Stack{}, err
+	}
+	if err := s.save(append(stacks, st)); err != nil {
+		return Stack{}, err
+	}
+	return st, nil
+}
+
+func (s *Store) save(stacks []Stack) error {
+	data, err := json.MarshalIndent(stacks, "", "  ")
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(s.root, 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(s.recordsPath(), data, 0o600)
+}

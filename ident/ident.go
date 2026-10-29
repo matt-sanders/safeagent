@@ -1,5 +1,5 @@
-// Package ident validates the Names users give Profiles and Stacks and
-// generates the hidden IDs that back them.
+// Package ident holds the Name rules and ID generation shared by Profiles and
+// Stacks.
 package ident
 
 import (
@@ -11,11 +11,11 @@ import (
 
 var namePattern = regexp.MustCompile(`^[a-z0-9_-]+$`)
 
-// ValidateName reports whether name is a valid Name: non-empty, using only
-// lowercase letters, digits, '-' and '_'.
+// ValidateName reports whether name is a valid Name: non-empty and made only
+// of lowercase letters, digits, '-' and '_'.
 func ValidateName(name string) error {
 	if name == "" {
-		return fmt.Errorf("name must not be empty")
+		return fmt.Errorf("name is required")
 	}
 	if !namePattern.MatchString(name) {
 		return fmt.Errorf("invalid name %q: use only lowercase letters, digits, '-' and '_'", name)
@@ -23,11 +23,11 @@ func ValidateName(name string) error {
 	return nil
 }
 
-// NewID returns a random 8-character hex ID.
+// NewID returns a fresh 8-character hex ID.
 func NewID() string {
 	b := make([]byte, 4)
 	if _, err := rand.Read(b); err != nil {
-		panic(fmt.Sprintf("crypto/rand failed: %v", err))
+		panic(fmt.Sprintf("ident: crypto/rand failed: %v", err))
 	}
 	return hex.EncodeToString(b)
 }
