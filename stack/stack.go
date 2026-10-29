@@ -120,3 +120,18 @@ func (s *Store) save(stacks []Stack) error {
 	}
 	return os.WriteFile(s.recordsPath(), data, 0o600)
 }
+
+// FindByID returns the Stack with the given ID, or an error if no Stack has
+// it (e.g. it was removed after a Project chose it).
+func (s *Store) FindByID(id string) (Stack, error) {
+	stacks, err := s.List()
+	if err != nil {
+		return Stack{}, err
+	}
+	for _, st := range stacks {
+		if st.ID == id {
+			return st, nil
+		}
+	}
+	return Stack{}, fmt.Errorf("no stack with ID %q", id)
+}

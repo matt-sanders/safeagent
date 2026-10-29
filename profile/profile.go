@@ -128,3 +128,18 @@ func (s *Store) save(profiles []Profile) error {
 	}
 	return nil
 }
+
+// FindByID returns the Profile with the given ID, or an error if no Profile
+// has it (e.g. it was removed after a Project chose it).
+func (s *Store) FindByID(id string) (Profile, error) {
+	profiles, err := s.List()
+	if err != nil {
+		return Profile{}, err
+	}
+	for _, p := range profiles {
+		if p.ID == id {
+			return p, nil
+		}
+	}
+	return Profile{}, fmt.Errorf("no profile with ID %q", id)
+}

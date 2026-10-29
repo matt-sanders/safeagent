@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"errors"
 	"fmt"
 
 	"safeagent/profile"
@@ -79,8 +78,13 @@ func newProjectRmCommand(deps Deps) *cobra.Command {
 	return c
 }
 
-// pickProfile returns the Profile called name, or asks the user to choose an
-// existing one when name is empty.
+// createNew is the picker value of the "Create new…" option.
+const createNew = -1
+
+// pickProfile returns the Profile called name, or asks the user to choose one
+// when name is empty. The picker lists every Profile plus "Create new…" (which
+// runs the `profile create` flow) and never chooses on the user's behalf, even
+// when only one option exists.
 func pickProfile(cmd *cobra.Command, deps Deps, name string) (profile.Profile, error) {
 	store := profile.NewStore(deps.ConfigRoot)
 	if name != "" {
@@ -90,22 +94,25 @@ func pickProfile(cmd *cobra.Command, deps Deps, name string) (profile.Profile, e
 	if err != nil {
 		return profile.Profile{}, err
 	}
-	if len(profiles) == 0 {
-		return profile.Profile{}, errors.New("no profiles exist yet; create one with `safeagent profile create`")
-	}
-	options := make([]huh.Option[int], len(profiles))
+	options := make([]huh.Option[int], 0, len(profiles)+1)
 	for i, p := range profiles {
-		options[i] = huh.NewOption(p.Name, i)
+		options = append(options, huh.NewOption(p.Name, i))
 	}
+	options = append(options, huh.NewOption("Create new…", createNew))
 	choice, err := selectOne(cmd, "Profile", options)
 	if err != nil {
 		return profile.Profile{}, err
 	}
+	if choice == createNew {
+		return createProfile(cmd, deps, "", true)
+	}
 	return profiles[choice], nil
 }
 
-// pickStack returns the Stack called name, or asks the user to choose an
-// existing one when name is empty.
+// pickStack returns the Stack called name, or asks the user to choose one
+// when name is empty. The picker lists every Stack plus "Create new…" (which
+// runs the `stack create` flow) and never chooses on the user's behalf, even
+// when only one option exists.
 func pickStack(cmd *cobra.Command, deps Deps, name string) (stack.Stack, error) {
 	store := stack.NewStore(deps.ConfigRoot)
 	if name != "" {
@@ -115,16 +122,17 @@ func pickStack(cmd *cobra.Command, deps Deps, name string) (stack.Stack, error) 
 	if err != nil {
 		return stack.Stack{}, err
 	}
-	if len(stacks) == 0 {
-		return stack.Stack{}, errors.New("no stacks exist yet; create one with `safeagent stack create`")
-	}
-	options := make([]huh.Option[int], len(stacks))
+	options := make([]huh.Option[int], 0, len(stacks)+1)
 	for i, st := range stacks {
-		options[i] = huh.NewOption(st.Name, i)
+		options = append(options, huh.NewOption(st.Name, i))
 	}
+	options = append(options, huh.NewOption("Create new…", createNew))
 	choice, err := selectOne(cmd, "Stack", options)
 	if err != nil {
 		return stack.Stack{}, err
+	}
+	if choice == createNew {
+		return createStack(cmd, deps, "", stack.DefaultNode, true, true)
 	}
 	return stacks[choice], nil
 }

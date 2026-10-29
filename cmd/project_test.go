@@ -144,21 +144,6 @@ func TestProjectCreateRejectsUnknownNames(t *testing.T) {
 	}
 }
 
-func TestProjectCreateWithoutAnyProfileOrStackErrorsInsteadOfPrompting(t *testing.T) {
-	env := clitest.New(t)
-
-	_, err := env.Run("project", "create", "--stack", "node22")
-	if err == nil || !strings.Contains(err.Error(), "safeagent profile create") {
-		t.Fatalf("expected a hint to create a profile, got %v", err)
-	}
-
-	env.MustRun("profile", "create", "--name", "work")
-	_, err = env.Run("project", "create", "--profile", "work")
-	if err == nil || !strings.Contains(err.Error(), "safeagent stack create") {
-		t.Fatalf("expected a hint to create a stack, got %v", err)
-	}
-}
-
 func TestProjectRmRemovesInnermostAncestorAndLeavesFiles(t *testing.T) {
 	env := setup(t)
 	outer := env.Cwd
