@@ -1,64 +1,36 @@
+// Package cmd builds safeagent's cobra command tree.
 package cmd
 
 import (
-	"fmt"
-	"os"
-	"path/filepath"
-
-	"safeagent/auth"
-	"safeagent/config"
 	"safeagent/docker"
-	"safeagent/profile"
-	"safeagent/project"
 
 	"github.com/spf13/cobra"
 )
 
-var (
-	profileService *profile.Service
-	projectService *project.Service
-	dockerService  *docker.Service
-	authService    *auth.Service
-	configDir      string
-	shellMode      bool
-
-	rootCmd = &cobra.Command{
-		Use:   "safeagent",
-		Short: "Run agents safely inside Docker",
-		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			homeDir, err := os.UserHomeDir()
-			if err != nil {
-				return fmt.Errorf("could not determine home directory: %w", err)
-			}
-			var cfgErr error
-			configDir, cfgErr = config.EnsureConfigDir(homeDir)
-			if cfgErr != nil {
-				return cfgErr
-			}
-			store := profile.NewStore(filepath.Join(configDir, "profiles.json"))
-			profileService = profile.NewService(store)
-			projectStore := project.NewStore(filepath.Join(configDir, "projects.json"))
-			projectService = project.NewService(projectStore)
-			dockerService = docker.NewService()
-			if err := config.MigrateAuthLayout(configDir); err != nil {
-				return err
-			}
-			authService = auth.NewService(filepath.Join(configDir, "auth"))
-			return nil
-		},
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return startSession(shellMode)
-		},
-	}
-)
-
-func init() {
-	rootCmd.Flags().BoolVar(&shellMode, "shell", false, "Open a shell instead of starting Claude")
+// Deps are the external dependencies the command tree is built from.
+type Deps struct {
+	// ConfigRoot is the v2 data folder (normally ~/.safeagent/v2).
+	ConfigRoot string
+	// Docker is the Docker port (docker.CLI in the binary, a fake in tests).
+	Docker docker.Docker
 }
 
-func Execute() {
-	if err := rootCmd.Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+// NewRootCommand builds a fresh command tree. It holds no global state, so
+// tests can build one per run. Commands must write through cmd.OutOrStdout()
+// so output can be captured.
+func NewRootCommand(deps Deps) *cobra.Command {
+	root := &cobra.Command{
+		Use:           "safeagent",
+		Short:         "Run agents safely inside Docker",
+		Args:          cobra.NoArgs,
+		SilenceUsage:  true,
+		SilenceErrors: true,
+		// Placeholder until starting a Session lands; makes the root runnable so
+		// NoArgs rejects unknown commands instead of silently printing help.
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return cmd.Help()
+		},
 	}
+	_ = deps
+	return root
 }

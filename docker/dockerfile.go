@@ -5,16 +5,28 @@ import (
 	"strings"
 )
 
+// BaseDockerfile is the embedded base Dockerfile every Image is built from.
+//
 //go:embed Dockerfile
-var Dockerfile string
+var BaseDockerfile string
 
-// InjectExtensions splices extra Dockerfile lines at the {{PROFILE_EXTENSIONS}}
-// marker. If extra is empty the marker line is removed cleanly.
-func InjectExtensions(extra string) string {
+const (
+	stackMarker   = "# {{STACK_EXTENSIONS}}\n"
+	profileMarker = "# {{PROFILE_EXTENSIONS}}\n"
+)
+
+// ComposeDockerfile splices a Stack's and a Profile's Dockerfile fragments into
+// the base Dockerfile, Stack first, then Profile, both before ENTRYPOINT. An
+// empty fragment removes its marker line cleanly.
+func ComposeDockerfile(stackExtra, profileExtra string) string {
+	out := strings.Replace(BaseDockerfile, stackMarker, fragment(stackExtra), 1)
+	return strings.Replace(out, profileMarker, fragment(profileExtra), 1)
+}
+
+func fragment(extra string) string {
 	trimmed := strings.TrimSpace(extra)
-	replacement := ""
-	if trimmed != "" {
-		replacement = trimmed + "\n"
+	if trimmed == "" {
+		return ""
 	}
-	return strings.Replace(Dockerfile, "# {{PROFILE_EXTENSIONS}}\n", replacement, 1)
+	return trimmed + "\n"
 }

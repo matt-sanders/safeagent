@@ -88,6 +88,8 @@ RUN bash -c "source /home/$USERNAME/.nvm/nvm.sh && nvm install $NODE_VERSION && 
 # Install pnpm
 RUN wget -qO- https://get.pnpm.io/install.sh | ENV="$HOME/.zshrc" SHELL="$(which sh)" sh -
 
+# {{STACK_EXTENSIONS}}
+
 # {{PROFILE_EXTENSIONS}}
 
 ENTRYPOINT ["/bin/zsh"]
