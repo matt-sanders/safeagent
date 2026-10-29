@@ -143,3 +143,27 @@ func (s *Store) FindByID(id string) (Profile, error) {
 	}
 	return Profile{}, fmt.Errorf("no profile with ID %q", id)
 }
+
+// Remove deletes the Profile record with the given ID and its folder.
+func (s *Store) Remove(id string) error {
+	profiles, err := s.List()
+	if err != nil {
+		return err
+	}
+	kept := make([]Profile, 0, len(profiles))
+	for _, p := range profiles {
+		if p.ID != id {
+			kept = append(kept, p)
+		}
+	}
+	if len(kept) == len(profiles) {
+		return fmt.Errorf("no profile with ID %q", id)
+	}
+	if err := s.save(kept); err != nil {
+		return err
+	}
+	if err := os.RemoveAll(s.Dir(id)); err != nil {
+		return fmt.Errorf("removing profile folder: %w", err)
+	}
+	return nil
+}

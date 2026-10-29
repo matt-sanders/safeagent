@@ -35,6 +35,6 @@ func NewRootCommand(deps Deps) *cobra.Command {
 		},
 	}
 	addSessionFlags(root, &opts)
-	root.AddCommand(newProfileCommand(deps), newProjectCommand(deps), newStackCommand(deps))
+	root.AddCommand(newProfileCommand(deps), newProjectCommand(deps), newSessionCommand(deps), newStackCommand(deps))
 	return root
 }
