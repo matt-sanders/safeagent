@@ -1,14 +1,15 @@
 package cmd
 
 import (
-	"bufio"
 	"fmt"
-	"io"
-	"strings"
+	"strconv"
 
+	"safeagent/ident"
+	"safeagent/project"
 	"safeagent/stack"
 	"safeagent/table"
 
+	"charm.land/huh/v2"
 	"github.com/spf13/cobra"
 )
 
@@ -29,19 +30,24 @@ func newStackCreateCommand(deps Deps) *cobra.Command {
 		Short: "Create a Stack",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			in := bufio.NewReader(cmd.InOrStdin())
-			out := cmd.OutOrStdout()
+			var fields []huh.Field
 			if !cmd.Flags().Changed("name") {
-				name = prompt(in, out, "Name", "")
+				fields = append(fields, huh.NewInput().Title("Stack name").Value(&name).Validate(ident.ValidateName))
 			}
 			if !cmd.Flags().Changed("node") {
-				node = prompt(in, out, "Node version", stack.DefaultNode)
+				fields = append(fields, huh.NewInput().Title("Node version").Value(&node))
+			}
+			if len(fields) > 0 {
+				err := huh.NewForm(huh.NewGroup(fields...)).WithInput(cmd.InOrStdin()).WithOutput(cmd.ErrOrStderr()).Run()
+				if err != nil {
+					return err
+				}
 			}
 			st, err := stack.NewStore(deps.ConfigRoot).Create(name, node)
 			if err != nil {
 				return err
 			}
-			fmt.Fprintf(out, "Created stack %s (%s, node %s)\n", st.Name, st.ID, st.Node)
+			fmt.Fprintf(cmd.OutOrStdout(), "Created stack %s (%s, node %s)\n", st.Name, st.ID, st.Node)
 			return nil
 		},
 	}
@@ -60,28 +66,15 @@ func newStackLsCommand(deps Deps) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			counts, err := project.NewStore(deps.ConfigRoot).CountByStack()
+			if err != nil {
+				return err
+			}
 			rows := make([][]string, len(stacks))
 			for i, st := range stacks {
-				// PROJECTS stays 0 until Projects exist.
-				rows[i] = []string{st.Name, st.ID, st.Node, "0"}
+				rows[i] = []string{st.Name, st.ID, st.Node, strconv.Itoa(counts[st.ID])}
 			}
 			return table.Print(cmd.OutOrStdout(), "No stacks.", []string{"NAME", "ID", "NODE", "PROJECTS"}, rows)
 		},
 	}
-}
-
-// prompt asks for one line of input, showing def in brackets. An empty
-// answer (or end of input) returns def.
-func prompt(in *bufio.Reader, out io.Writer, label, def string) string {
-	if def == "" {
-		fmt.Fprintf(out, "%s: ", label)
-	} else {
-		fmt.Fprintf(out, "%s [%s]: ", label, def)
-	}
-	line, _ := in.ReadString('\n')
-	line = strings.TrimSpace(line)
-	if line == "" {
-		return def
-	}
-	return line
 }

@@ -16,12 +16,15 @@ type Env struct {
 	t          *testing.T
 	ConfigRoot string
 	Docker     *dockertest.Fake
+	// Cwd is the current directory commands run in (a fresh temp dir by
+	// default). Change it to exercise Project lookup from a directory.
+	Cwd string
 }
 
 // New returns an Env with an empty temp config root and an empty fake Docker.
 func New(t *testing.T) *Env {
 	t.Helper()
-	return &Env{t: t, ConfigRoot: t.TempDir(), Docker: dockertest.New()}
+	return &Env{t: t, ConfigRoot: t.TempDir(), Docker: dockertest.New(), Cwd: t.TempDir()}
 }
 
 // Run executes `safeagent <args...>` against a freshly built command tree and
@@ -29,18 +32,11 @@ func New(t *testing.T) *Env {
 // value as a flag or argument so no interactive prompt runs.
 func (e *Env) Run(args ...string) (string, error) {
 	e.t.Helper()
-	return e.RunWithInput("", args...)
-}
-
-// RunWithInput is Run with input fed to stdin, for driving line prompts (one
-// answer per line; an empty line accepts a prompt's default).
-func (e *Env) RunWithInput(input string, args ...string) (string, error) {
-	e.t.Helper()
-	root := cmd.NewRootCommand(cmd.Deps{ConfigRoot: e.ConfigRoot, Docker: e.Docker})
+	root := cmd.NewRootCommand(cmd.Deps{ConfigRoot: e.ConfigRoot, Docker: e.Docker, Cwd: e.Cwd})
 	var out, errOut bytes.Buffer
 	root.SetOut(&out)
 	root.SetErr(&errOut)
-	root.SetIn(bytes.NewBufferString(input))
+	root.SetIn(&bytes.Buffer{})
 	root.SetArgs(args)
 	err := root.Execute()
 	return out.String(), err

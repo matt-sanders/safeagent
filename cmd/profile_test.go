@@ -91,7 +91,7 @@ func TestProfileCreateRejectsDuplicateName(t *testing.T) {
 
 func TestProfileMayShareNameWithStack(t *testing.T) {
 	env := clitest.New(t)
-	env.MustRun("stack", "create", "--name", "work")
+	env.MustRun("stack", "create", "--name", "work", "--node", "22")
 
 	env.MustRun("profile", "create", "--name", "work")
 	profileID(t, env, "work")

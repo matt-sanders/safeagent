@@ -41,38 +41,6 @@ func TestStackCreateWithFlagsCreatesStackAndEmptyFragment(t *testing.T) {
 	}
 }
 
-func TestStackCreatePromptsWithNodeDefaultingToLTS(t *testing.T) {
-	env := clitest.New(t)
-
-	out, err := env.RunWithInput("\n", "stack", "create", "--name", "web")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if !strings.Contains(out, "Node version [lts]") {
-		t.Fatalf("expected node prompt prefilled with lts, got:\n%s", out)
-	}
-	ls := env.MustRun("stack", "ls")
-	if !regexp.MustCompile(`(?m)^web\s+[0-9a-f]{8}\s+lts\s+0\s*$`).MatchString(ls) {
-		t.Fatalf("expected web stack with node lts, got:\n%s", ls)
-	}
-}
-
-func TestStackCreatePromptsForNameAndNode(t *testing.T) {
-	env := clitest.New(t)
-
-	out, err := env.RunWithInput("py\n20\n", "stack", "create")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if !strings.Contains(out, "Name: ") {
-		t.Fatalf("expected name prompt, got:\n%s", out)
-	}
-	ls := env.MustRun("stack", "ls")
-	if !regexp.MustCompile(`(?m)^py\s+[0-9a-f]{8}\s+20\s+0\s*$`).MatchString(ls) {
-		t.Fatalf("expected py stack with node 20, got:\n%s", ls)
-	}
-}
-
 func TestStackCreateRejectsInvalidNames(t *testing.T) {
 	env := clitest.New(t)
 
@@ -94,7 +62,7 @@ func TestStackCreateRejectsInvalidNames(t *testing.T) {
 func TestStackCreateRejectsEmptyName(t *testing.T) {
 	env := clitest.New(t)
 
-	if _, err := env.RunWithInput("\n\n", "stack", "create"); err == nil {
+	if _, err := env.Run("stack", "create", "--name", "", "--node", "22"); err == nil {
 		t.Fatal("expected empty name to be rejected")
 	}
 }

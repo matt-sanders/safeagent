@@ -6,6 +6,7 @@ import (
 
 	"safeagent/ident"
 	"safeagent/profile"
+	"safeagent/project"
 	"safeagent/table"
 
 	"charm.land/huh/v2"
@@ -59,10 +60,13 @@ func newProfileLsCommand(deps Deps) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			counts, err := project.NewStore(deps.ConfigRoot).CountByProfile()
+			if err != nil {
+				return err
+			}
 			rows := make([][]string, 0, len(profiles))
 			for _, p := range profiles {
-				// PROJECTS stays 0 until Projects exist.
-				rows = append(rows, []string{p.Name, p.ID, strconv.Itoa(len(p.Mounts)), "0"})
+				rows = append(rows, []string{p.Name, p.ID, strconv.Itoa(len(p.Mounts)), strconv.Itoa(counts[p.ID])})
 			}
 			return table.Print(cmd.OutOrStdout(), "No profiles.", []string{"NAME", "ID", "MOUNTS", "PROJECTS"}, rows)
 		},

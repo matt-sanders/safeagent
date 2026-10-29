@@ -13,6 +13,9 @@ type Deps struct {
 	ConfigRoot string
 	// Docker is the Docker port (docker.CLI in the binary, a fake in tests).
 	Docker docker.Docker
+	// Cwd is the directory relative paths and Project lookup start from.
+	// Empty means the process's working directory.
+	Cwd string
 }
 
 // NewRootCommand builds a fresh command tree. It holds no global state, so
@@ -31,6 +34,6 @@ func NewRootCommand(deps Deps) *cobra.Command {
 			return cmd.Help()
 		},
 	}
-	root.AddCommand(newProfileCommand(deps), newStackCommand(deps))
+	root.AddCommand(newProfileCommand(deps), newProjectCommand(deps), newStackCommand(deps))
 	return root
 }
