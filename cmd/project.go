@@ -19,6 +19,7 @@ func newProjectCommand(deps Deps) *cobra.Command {
 		Args:  cobra.NoArgs,
 	}
 	c.AddCommand(newProjectCreateCommand(deps), newProjectRmCommand(deps))
+	c.AddCommand(newProjectUseProfileCommand(deps), newProjectUseStackCommand(deps))
 	return c
 }
 
