@@ -31,6 +31,6 @@ func NewRootCommand(deps Deps) *cobra.Command {
 			return cmd.Help()
 		},
 	}
-	_ = deps
+	root.AddCommand(newStackCommand(deps))
 	return root
 }

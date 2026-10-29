@@ -29,11 +29,18 @@ func New(t *testing.T) *Env {
 // value as a flag or argument so no interactive prompt runs.
 func (e *Env) Run(args ...string) (string, error) {
 	e.t.Helper()
+	return e.RunWithInput("", args...)
+}
+
+// RunWithInput is Run with input fed to stdin, for driving line prompts (one
+// answer per line; an empty line accepts a prompt's default).
+func (e *Env) RunWithInput(input string, args ...string) (string, error) {
+	e.t.Helper()
 	root := cmd.NewRootCommand(cmd.Deps{ConfigRoot: e.ConfigRoot, Docker: e.Docker})
 	var out, errOut bytes.Buffer
 	root.SetOut(&out)
 	root.SetErr(&errOut)
-	root.SetIn(&bytes.Buffer{})
+	root.SetIn(bytes.NewBufferString(input))
 	root.SetArgs(args)
 	err := root.Execute()
 	return out.String(), err
