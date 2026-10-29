@@ -28,8 +28,8 @@ func loadNames(deps Deps) (names, error) {
 	if err != nil {
 		return n, err
 	}
-	for _, p := range profiles {
-		n.profiles[p.ID] = p.Name
+	for _, prof := range profiles {
+		n.profiles[prof.ID] = prof.Name
 	}
 	stacks, err := stack.NewStore(deps.ConfigRoot).List()
 	if err != nil {
@@ -56,8 +56,8 @@ func (n names) stack(id string) string {
 }
 
 // imageState returns "built" or "not built" for the Project's Image.
-func imageState(deps Deps, p project.Project) (string, error) {
-	exists, err := deps.Docker.ImageExists(image.Ref(p.StackID, p.ProfileID))
+func imageState(deps Deps, proj project.Project) (string, error) {
+	exists, err := deps.Docker.ImageExists(image.Ref(proj.StackID, proj.ProfileID))
 	if err != nil {
 		return "", err
 	}
@@ -67,26 +67,21 @@ func imageState(deps Deps, p project.Project) (string, error) {
 	return "not built", nil
 }
 
-// sessionMounts returns the mounts a Session in p gets: the Project at its own
-// path, the Profile's Claude config folder at /claude, then the Profile's
-// Mounts (none if the Profile no longer exists).
-func sessionMounts(deps Deps, p project.Project) ([]docker.Mount, error) {
+// sessionMounts returns the mounts a Session in proj gets: the Project at its
+// own path, the Profile's Claude config folder at /claude, then the Profile's
+// Mounts. It errors if the Profile no longer exists.
+func sessionMounts(deps Deps, proj project.Project) ([]docker.Mount, error) {
 	store := profile.NewStore(deps.ConfigRoot)
-	mounts := []docker.Mount{
-		{Source: p.Path, Target: p.Path},
-		{Source: store.ClaudeDir(p.ProfileID), Target: profile.ClaudeMountPath},
-	}
-	profiles, err := store.List()
+	prof, err := store.FindByID(proj.ProfileID)
 	if err != nil {
 		return nil, err
 	}
-	for _, prof := range profiles {
-		if prof.ID != p.ProfileID {
-			continue
-		}
-		for _, m := range prof.Mounts {
-			mounts = append(mounts, docker.Mount{Source: m.HostPath, Target: m.ContainerPath})
-		}
+	mounts := []docker.Mount{
+		{Source: proj.Path, Target: proj.Path},
+		{Source: store.ClaudeDir(prof.ID), Target: profile.ClaudeMountPath},
+	}
+	for _, m := range prof.Mounts {
+		mounts = append(mounts, docker.Mount{Source: m.HostPath, Target: m.ContainerPath})
 	}
 	return mounts, nil
 }
@@ -106,12 +101,12 @@ func newProjectLsCommand(deps Deps) *cobra.Command {
 				return err
 			}
 			rows := make([][]string, len(projects))
-			for i, p := range projects {
-				state, err := imageState(deps, p)
+			for i, proj := range projects {
+				state, err := imageState(deps, proj)
 				if err != nil {
 					return err
 				}
-				rows[i] = []string{p.Path, n.profile(p.ProfileID), n.stack(p.StackID), state}
+				rows[i] = []string{proj.Path, n.profile(proj.ProfileID), n.stack(proj.StackID), state}
 			}
 			return table.Print(cmd.OutOrStdout(), "No projects.", []string{"PATH", "PROFILE", "STACK", "IMAGE"}, rows)
 		},
@@ -125,42 +120,42 @@ func newProjectInspectCommand(deps Deps) *cobra.Command {
 		Short: "Show a Project and the session setup that will apply",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			p, err := resolveProject(deps, path)
+			proj, err := resolveProject(deps, path)
 			if err != nil {
 				return err
 			}
-			n, err := loadNames(deps)
+			prof, st, err := projectProfileAndStack(deps, proj)
 			if err != nil {
 				return err
 			}
-			state, err := imageState(deps, p)
+			state, err := imageState(deps, proj)
+			if err != nil {
+				return err
+			}
+			mounts, err := sessionMounts(deps, proj)
 			if err != nil {
 				return err
 			}
 			out := cmd.OutOrStdout()
 			tw := tabwriter.NewWriter(out, 0, 0, 2, ' ', 0)
-			fmt.Fprintf(tw, "Path:\t%s\n", p.Path)
-			fmt.Fprintf(tw, "Profile:\t%s\n", n.profile(p.ProfileID))
-			fmt.Fprintf(tw, "Stack:\t%s\n", n.stack(p.StackID))
-			fmt.Fprintf(tw, "Image:\t%s (%s)\n", image.Name(n.stack(p.StackID), n.profile(p.ProfileID)), state)
+			fmt.Fprintf(tw, "Path:\t%s\n", proj.Path)
+			fmt.Fprintf(tw, "Profile:\t%s\n", prof.Name)
+			fmt.Fprintf(tw, "Stack:\t%s\n", st.Name)
+			fmt.Fprintf(tw, "Image:\t%s (%s)\n", image.Name(st.Name, prof.Name), state)
 			if err := tw.Flush(); err != nil {
 				return err
 			}
-			mounts, err := sessionMounts(deps, p)
-			if err != nil {
-				return err
-			}
 			fmt.Fprintln(out, "\nMounts:")
-			var rows [][]string
-			for _, m := range mounts {
-				rows = append(rows, []string{m.Source, m.Target})
+			rows := make([][]string, len(mounts))
+			for i, m := range mounts {
+				rows[i] = []string{m.Source, m.Target}
 			}
-			if err := table.Print(out, "No mounts.", []string{"HOST", "CONTAINER"}, rows); err != nil {
+			if err := printMounts(out, rows); err != nil {
 				return err
 			}
 
 			fmt.Fprintln(out, "\nExclusions:")
-			return printExclusions(cmd, p.Exclusions)
+			return printExclusions(cmd, proj.Exclusions)
 		},
 	}
 	addProjectFlag(c, &path)

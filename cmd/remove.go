@@ -19,20 +19,24 @@ func newProfileRmCommand(deps Deps) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			store := profile.NewStore(deps.ConfigRoot)
-			p, err := store.FindByName(args[0])
+			prof, err := store.FindByName(args[0])
 			if err != nil {
 				return err
 			}
-			if err := refuseIfUsed(deps, "profile", p.Name, func(pr project.Project) bool { return pr.ProfileID == p.ID }); err != nil {
+			if err := refuseIfUsed(deps, "profile", prof.Name, func(proj project.Project) bool { return proj.ProfileID == prof.ID }); err != nil {
 				return err
 			}
-			if err := removeImages(cmd, deps, func() ([]string, error) { return image.ListForProfile(deps.Docker, p.ID) }); err != nil {
+			imgs, err := image.ExistingWithProfile(deps.Docker, prof.ID)
+			if err != nil {
 				return err
 			}
-			if err := store.Remove(p.ID); err != nil {
+			if err := removeImages(cmd, deps, imgs); err != nil {
 				return err
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "Removed profile %s (%s).\n", p.Name, p.ID)
+			if err := store.Remove(prof.ID); err != nil {
+				return err
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "Removed profile %s (%s).\n", prof.Name, prof.ID)
 			return nil
 		},
 	}
@@ -49,10 +53,14 @@ func newStackRmCommand(deps Deps) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if err := refuseIfUsed(deps, "stack", st.Name, func(pr project.Project) bool { return pr.StackID == st.ID }); err != nil {
+			if err := refuseIfUsed(deps, "stack", st.Name, func(proj project.Project) bool { return proj.StackID == st.ID }); err != nil {
 				return err
 			}
-			if err := removeImages(cmd, deps, func() ([]string, error) { return image.ListForStack(deps.Docker, st.ID) }); err != nil {
+			imgs, err := image.ExistingWithStack(deps.Docker, st.ID)
+			if err != nil {
+				return err
+			}
+			if err := removeImages(cmd, deps, imgs); err != nil {
 				return err
 			}
 			if err := store.Remove(st.ID); err != nil {
@@ -71,9 +79,9 @@ func refuseIfUsed(deps Deps, kind, name string, uses func(project.Project) bool)
 		return err
 	}
 	var paths []string
-	for _, pr := range projects {
-		if uses(pr) {
-			paths = append(paths, "  "+pr.Path)
+	for _, proj := range projects {
+		if uses(proj) {
+			paths = append(paths, "  "+proj.Path)
 		}
 	}
 	if len(paths) == 0 {
@@ -83,17 +91,23 @@ func refuseIfUsed(deps Deps, kind, name string, uses func(project.Project) bool)
 		kind, name, len(paths), strings.Join(paths, "\n"))
 }
 
-// removeImages removes every Image the list function returns, reporting each.
-func removeImages(cmd *cobra.Command, deps Deps, list func() ([]string, error)) error {
-	refs, err := list()
+// removeImages removes each of imgs, reporting it by Name (or raw ID where a
+// Name doesn't resolve). Call it before removing the Profile or Stack record
+// so its Name still resolves.
+func removeImages(cmd *cobra.Command, deps Deps, imgs []image.Existing) error {
+	if len(imgs) == 0 {
+		return nil
+	}
+	n, err := loadNames(deps)
 	if err != nil {
 		return err
 	}
-	for _, ref := range refs {
-		if err := deps.Docker.RemoveImage(ref); err != nil {
-			return fmt.Errorf("removing image %s: %w", ref, err)
+	for _, img := range imgs {
+		name := image.Name(n.stack(img.StackID), n.profile(img.ProfileID))
+		if err := deps.Docker.RemoveImage(img.Ref); err != nil {
+			return fmt.Errorf("removing image %s: %w", name, err)
 		}
-		fmt.Fprintf(cmd.OutOrStdout(), "Removed image %s.\n", ref)
+		fmt.Fprintf(cmd.OutOrStdout(), "Removed image %s.\n", name)
 	}
 	return nil
 }

@@ -53,7 +53,13 @@ func TestProfileRmRemovesUnusedProfileFolderAndItsImages(t *testing.T) {
 	env.Docker.AddImage("safeagent/" + s2 + ":" + work)
 	env.Docker.AddImage("safeagent/" + s1 + ":" + home)
 
-	env.MustRun("profile", "rm", "work")
+	out := env.MustRun("profile", "rm", "work")
+
+	for _, name := range []string{"node22:work", "py:work"} {
+		if !strings.Contains(out, "Removed image "+name+".\n") {
+			t.Errorf("expected removal of %s reported by name, got:\n%s", name, out)
+		}
+	}
 
 	if strings.Contains(env.MustRun("profile", "ls"), "work") {
 		t.Error("expected Profile record removed")

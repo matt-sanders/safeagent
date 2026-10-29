@@ -63,33 +63,36 @@ func newImageRmCommand(deps Deps) *cobra.Command {
 		Short: "Remove a built Image (Projects using it rebuild it next session)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			st, p, err := resolveImage(deps, args[0])
+			st, prof, err := resolveImage(deps, args[0])
 			if err != nil {
 				return err
 			}
-			name := image.Name(st.Name, p.Name)
-			ref := image.Ref(st.ID, p.ID)
+			name := image.Name(st.Name, prof.Name)
+			ref := image.Ref(st.ID, prof.ID)
 			exists, err := deps.Docker.ImageExists(ref)
 			if err != nil {
 				return err
-			}
-			if !exists {
-				return fmt.Errorf("image %s is not built", name)
 			}
 			projects, err := project.NewStore(deps.ConfigRoot).List()
 			if err != nil {
 				return err
 			}
-			if err := deps.Docker.RemoveImage(ref); err != nil {
-				return err
-			}
 			out := cmd.OutOrStdout()
-			fmt.Fprintf(out, "Removed image %s\n", name)
-			affected := projectsUsing(projects, image.Existing{Ref: ref, StackID: st.ID, ProfileID: p.ID})
+			header := "These Projects will rebuild it at their next session:"
+			if exists {
+				if err := deps.Docker.RemoveImage(ref); err != nil {
+					return fmt.Errorf("removing image %s: %w", name, err)
+				}
+				fmt.Fprintf(out, "Removed image %s.\n", name)
+			} else {
+				fmt.Fprintf(out, "Image %s is not built; nothing to remove.\n", name)
+				header = "These Projects will build it at their next session:"
+			}
+			affected := projectsUsing(projects, image.Existing{Ref: ref, StackID: st.ID, ProfileID: prof.ID})
 			if len(affected) > 0 {
-				fmt.Fprintln(out, "These Projects will rebuild it at their next session:")
-				for _, pr := range affected {
-					fmt.Fprintf(out, "  %s\n", pr.Path)
+				fmt.Fprintln(out, header)
+				for _, proj := range affected {
+					fmt.Fprintf(out, "  %s\n", proj.Path)
 				}
 			}
 			return nil
@@ -101,7 +104,7 @@ func newImageRebuildCommand(deps Deps) *cobra.Command {
 	var all bool
 	c := &cobra.Command{
 		Use:   "rebuild [<stack>:<profile> | --all]",
-		Short: "Rebuild one Image, or every built Image with --all",
+		Short: "Rebuild one built Image, or every built Image with --all",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if all && len(args) > 0 {
@@ -113,15 +116,22 @@ func newImageRebuildCommand(deps Deps) *cobra.Command {
 			if all {
 				return rebuildAllImages(cmd, deps)
 			}
-			st, p, err := resolveImage(deps, args[0])
+			st, prof, err := resolveImage(deps, args[0])
 			if err != nil {
 				return err
 			}
-			if err := image.Build(deps.Docker, deps.ConfigRoot, st, p); err != nil {
+			ref := image.Ref(st.ID, prof.ID)
+			exists, err := deps.Docker.ImageExists(ref)
+			if err != nil {
 				return err
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "Rebuilt image %s\n", image.Name(st.Name, p.Name))
-			return nil
+			if !exists {
+				return fmt.Errorf("image %s is not built; it will be built the next time a session needs it", image.Name(st.Name, prof.Name))
+			}
+			pairs := []image.Existing{{Ref: ref, StackID: st.ID, ProfileID: prof.ID}}
+			return rebuildPairs(cmd, deps, pairs, "", func(image.Existing) (stack.Stack, profile.Profile, error) {
+				return st, prof, nil
+			})
 		},
 	}
 	c.Flags().BoolVar(&all, "all", false, "Rebuild every built safeagent Image")
@@ -135,30 +145,15 @@ func rebuildAllImages(cmd *cobra.Command, deps Deps) error {
 	if err != nil {
 		return err
 	}
-	out := cmd.OutOrStdout()
-	if len(imgs) == 0 {
-		fmt.Fprintln(out, "No images to rebuild.")
-		return nil
-	}
-	n, err := loadNames(deps)
-	if err != nil {
-		return err
-	}
 	stacks, profiles := stack.NewStore(deps.ConfigRoot), profile.NewStore(deps.ConfigRoot)
-	for _, img := range imgs {
-		name := image.Name(n.stack(img.StackID), n.profile(img.ProfileID))
-		st, stErr := stacks.FindByID(img.StackID)
-		p, pErr := profiles.FindByID(img.ProfileID)
-		if stErr != nil || pErr != nil {
-			fmt.Fprintf(out, "Skipped %s: its Stack or Profile no longer exists\n", name)
-			continue
+	return rebuildPairs(cmd, deps, imgs, "No images to rebuild.", func(img image.Existing) (stack.Stack, profile.Profile, error) {
+		st, err := stacks.FindByID(img.StackID)
+		if err != nil {
+			return stack.Stack{}, profile.Profile{}, err
 		}
-		if err := image.Build(deps.Docker, deps.ConfigRoot, st, p); err != nil {
-			return fmt.Errorf("rebuild %s: %w", name, err)
-		}
-		fmt.Fprintf(out, "Rebuilt image %s\n", name)
-	}
-	return nil
+		prof, err := profiles.FindByID(img.ProfileID)
+		return st, prof, err
+	})
 }
 
 // resolveImage turns the CLI form "<stack>:<profile>" into its Stack and
@@ -172,19 +167,19 @@ func resolveImage(deps Deps, s string) (stack.Stack, profile.Profile, error) {
 	if err != nil {
 		return stack.Stack{}, profile.Profile{}, err
 	}
-	p, err := profile.NewStore(deps.ConfigRoot).FindByName(profileName)
+	prof, err := profile.NewStore(deps.ConfigRoot).FindByName(profileName)
 	if err != nil {
 		return stack.Stack{}, profile.Profile{}, err
 	}
-	return st, p, nil
+	return st, prof, nil
 }
 
 // projectsUsing returns the Projects whose Stack and Profile make up img.
 func projectsUsing(projects []project.Project, img image.Existing) []project.Project {
 	var out []project.Project
-	for _, p := range projects {
-		if p.StackID == img.StackID && p.ProfileID == img.ProfileID {
-			out = append(out, p)
+	for _, proj := range projects {
+		if proj.StackID == img.StackID && proj.ProfileID == img.ProfileID {
+			out = append(out, proj)
 		}
 	}
 	return out

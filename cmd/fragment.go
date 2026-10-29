@@ -26,12 +26,12 @@ func newProfileDockerfileCommand(deps Deps) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			store := profile.NewStore(deps.ConfigRoot)
-			p, err := store.FindByName(args[0])
+			prof, err := store.FindByName(args[0])
 			if err != nil {
 				return err
 			}
-			return editFragment(cmd, store.DockerfilePath(p.ID), "profile", p.Name, func() error {
-				return rebuildProfile(cmd, deps, p)
+			return editFragment(cmd, store.DockerfilePath(prof.ID), "profile", prof.Name, func() error {
+				return rebuildProfile(cmd, deps, prof)
 			})
 		},
 	}
@@ -61,11 +61,11 @@ func newProfileRebuildCommand(deps Deps) *cobra.Command {
 		Short: "Rebuild the existing Images that use a Profile",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			p, err := profile.NewStore(deps.ConfigRoot).FindByName(args[0])
+			prof, err := profile.NewStore(deps.ConfigRoot).FindByName(args[0])
 			if err != nil {
 				return err
 			}
-			return rebuildProfile(cmd, deps, p)
+			return rebuildProfile(cmd, deps, prof)
 		},
 	}
 }
@@ -99,9 +99,9 @@ func editFragment(cmd *cobra.Command, path, kind, name string, rebuild func() er
 		return nil
 	}
 	yes := true
-	err := huh.NewForm(huh.NewGroup(
+	err := runForm(cmd,
 		huh.NewConfirm().Title(fmt.Sprintf("Rebuild the existing images that use %s %s?", kind, name)).Value(&yes),
-	)).WithInput(cmd.InOrStdin()).WithOutput(cmd.ErrOrStderr()).Run()
+	)
 	if err != nil {
 		return err
 	}
@@ -138,17 +138,18 @@ func isTerminal(r io.Reader) bool {
 	return err == nil && info.Mode()&os.ModeCharDevice != 0
 }
 
-// rebuildProfile rebuilds every existing Image containing p. It never builds a
-// pairing that doesn't already exist.
-func rebuildProfile(cmd *cobra.Command, deps Deps, p profile.Profile) error {
-	pairs, err := image.ExistingWithProfile(deps.Docker, p.ID)
+// rebuildProfile rebuilds every existing Image containing prof. It never
+// builds a pairing that doesn't already exist.
+func rebuildProfile(cmd *cobra.Command, deps Deps, prof profile.Profile) error {
+	pairs, err := image.ExistingWithProfile(deps.Docker, prof.ID)
 	if err != nil {
 		return err
 	}
 	stacks := stack.NewStore(deps.ConfigRoot)
-	return rebuildPairs(cmd, deps, pairs, "profile "+p.Name, func(pair image.Existing) (stack.Stack, profile.Profile, error) {
+	empty := fmt.Sprintf("No existing images use profile %s; nothing to rebuild.", prof.Name)
+	return rebuildPairs(cmd, deps, pairs, empty, func(pair image.Existing) (stack.Stack, profile.Profile, error) {
 		st, err := stacks.FindByID(pair.StackID)
-		return st, p, err
+		return st, prof, err
 	})
 }
 
@@ -160,33 +161,39 @@ func rebuildStack(cmd *cobra.Command, deps Deps, st stack.Stack) error {
 		return err
 	}
 	profiles := profile.NewStore(deps.ConfigRoot)
-	return rebuildPairs(cmd, deps, pairs, "stack "+st.Name, func(pair image.Existing) (stack.Stack, profile.Profile, error) {
-		p, err := profiles.FindByID(pair.ProfileID)
-		return st, p, err
+	empty := fmt.Sprintf("No existing images use stack %s; nothing to rebuild.", st.Name)
+	return rebuildPairs(cmd, deps, pairs, empty, func(pair image.Existing) (stack.Stack, profile.Profile, error) {
+		prof, err := profiles.FindByID(pair.ProfileID)
+		return st, prof, err
 	})
 }
 
-// rebuildPairs builds each pair with the same build as session start. A pair
-// whose other half no longer has a record can't be built, so it is skipped
-// with a note.
-func rebuildPairs(cmd *cobra.Command, deps Deps, pairs []image.Existing, what string, resolve func(image.Existing) (stack.Stack, profile.Profile, error)) error {
+// rebuildPairs builds each pair with the same build as session start,
+// printing empty when there are none. A pair whose Stack or Profile no longer
+// has a record can't be built, so it is skipped with a note naming it as far
+// as its Names resolve.
+func rebuildPairs(cmd *cobra.Command, deps Deps, pairs []image.Existing, empty string, resolve func(image.Existing) (stack.Stack, profile.Profile, error)) error {
 	out := cmd.OutOrStdout()
 	if len(pairs) == 0 {
-		fmt.Fprintf(out, "No existing images use %s; nothing to rebuild.\n", what)
+		fmt.Fprintln(out, empty)
 		return nil
 	}
+	n, err := loadNames(deps)
+	if err != nil {
+		return err
+	}
 	for _, pair := range pairs {
-		st, p, err := resolve(pair)
+		st, prof, err := resolve(pair)
 		if err != nil {
-			fmt.Fprintf(out, "Skipped %s: %v.\n", image.Ref(pair.StackID, pair.ProfileID), err)
+			fmt.Fprintf(out, "Skipped %s: %v.\n", image.Name(n.stack(pair.StackID), n.profile(pair.ProfileID)), err)
 			continue
 		}
-		name := image.Name(st.Name, p.Name)
-		fmt.Fprintf(out, "Rebuilding %s...\n", name)
-		if err := image.Build(deps.Docker, deps.ConfigRoot, st, p); err != nil {
-			return fmt.Errorf("rebuilding %s: %w", name, err)
+		name := image.Name(st.Name, prof.Name)
+		fmt.Fprintf(out, "Rebuilding image %s...\n", name)
+		if err := image.Build(deps.Docker, deps.ConfigRoot, st, prof); err != nil {
+			return fmt.Errorf("rebuilding image %s: %w", name, err)
 		}
-		fmt.Fprintf(out, "Rebuilt %s.\n", name)
+		fmt.Fprintf(out, "Rebuilt image %s.\n", name)
 	}
 	return nil
 }

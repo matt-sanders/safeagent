@@ -106,7 +106,7 @@ func (s *Store) Create(name string) (Profile, error) {
 	if err := os.MkdirAll(s.ClaudeDir(p.ID), 0o700); err != nil {
 		return Profile{}, fmt.Errorf("creating profile folder: %w", err)
 	}
-	if err := os.WriteFile(s.DockerfilePath(p.ID), nil, 0o644); err != nil {
+	if err := os.WriteFile(s.DockerfilePath(p.ID), nil, 0o600); err != nil {
 		return Profile{}, fmt.Errorf("creating profile Dockerfile: %w", err)
 	}
 	if err := s.save(append(profiles, p)); err != nil {
@@ -172,17 +172,19 @@ func (s *Store) Remove(id string) error {
 // folder; no Mount may use it.
 const ClaudeMountPath = "/claude"
 
-// AddMount validates m and appends it to the named Profile's Mounts. The host
-// path must exist; the container path must be absolute, not /claude, and not
-// already used by another of the Profile's Mounts. Paths are cleaned.
-func (s *Store) AddMount(name string, m Mount) (Mount, error) {
+// AddMount validates m and appends it to the Mounts of the Profile with the
+// given ID. The host path must exist; the container path must be absolute, not
+// /claude, and not already used by another of the Profile's Mounts. Paths are
+// cleaned; a relative host path is resolved against the process's working
+// directory, so callers with their own notion of cwd should pass it absolute.
+func (s *Store) AddMount(id string, m Mount) (Mount, error) {
 	profiles, err := s.List()
 	if err != nil {
 		return Mount{}, err
 	}
-	i := indexByName(profiles, name)
+	i := indexByID(profiles, id)
 	if i < 0 {
-		return Mount{}, fmt.Errorf("no profile named %q", name)
+		return Mount{}, fmt.Errorf("no profile with ID %q", id)
 	}
 	if m.HostPath == "" {
 		return Mount{}, errors.New("host path is required")
@@ -203,7 +205,7 @@ func (s *Store) AddMount(name string, m Mount) (Mount, error) {
 	}
 	for _, existing := range profiles[i].Mounts {
 		if existing.ContainerPath == target {
-			return Mount{}, fmt.Errorf("profile %q already has a mount at %s", name, target)
+			return Mount{}, fmt.Errorf("profile %q already has a mount at %s", profiles[i].Name, target)
 		}
 	}
 	added := Mount{HostPath: host, ContainerPath: target}
@@ -211,15 +213,16 @@ func (s *Store) AddMount(name string, m Mount) (Mount, error) {
 	return added, s.save(profiles)
 }
 
-// RemoveMount removes the named Profile's Mount at containerPath.
-func (s *Store) RemoveMount(name, containerPath string) error {
+// RemoveMount removes the Mount at containerPath from the Profile with the
+// given ID.
+func (s *Store) RemoveMount(id, containerPath string) error {
 	profiles, err := s.List()
 	if err != nil {
 		return err
 	}
-	i := indexByName(profiles, name)
+	i := indexByID(profiles, id)
 	if i < 0 {
-		return fmt.Errorf("no profile named %q", name)
+		return fmt.Errorf("no profile with ID %q", id)
 	}
 	target := filepath.Clean(containerPath)
 	mounts := profiles[i].Mounts
@@ -229,12 +232,12 @@ func (s *Store) RemoveMount(name, containerPath string) error {
 			return s.save(profiles)
 		}
 	}
-	return fmt.Errorf("profile %q has no mount at %s", name, target)
+	return fmt.Errorf("profile %q has no mount at %s", profiles[i].Name, target)
 }
 
-func indexByName(profiles []Profile, name string) int {
+func indexByID(profiles []Profile, id string) int {
 	for i, p := range profiles {
-		if p.Name == name {
+		if p.ID == id {
 			return i
 		}
 	}

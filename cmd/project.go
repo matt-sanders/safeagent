@@ -35,7 +35,7 @@ func newProjectCreateCommand(deps Deps) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			p, err := pickProfile(cmd, deps, profileName)
+			prof, err := pickProfile(cmd, deps, profileName)
 			if err != nil {
 				return err
 			}
@@ -43,11 +43,11 @@ func newProjectCreateCommand(deps Deps) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			err = project.NewStore(deps.ConfigRoot).Create(project.Project{Path: dir, ProfileID: p.ID, StackID: st.ID})
+			err = project.NewStore(deps.ConfigRoot).Create(project.Project{Path: dir, ProfileID: prof.ID, StackID: st.ID})
 			if err != nil {
 				return err
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "Created project %s (profile %s, stack %s).\n", dir, p.Name, st.Name)
+			fmt.Fprintf(cmd.OutOrStdout(), "Created project %s (profile %s, stack %s).\n", dir, prof.Name, st.Name)
 			return nil
 		},
 	}
@@ -64,14 +64,14 @@ func newProjectRmCommand(deps Deps) *cobra.Command {
 		Short: "Forget a Project (files on disk are untouched)",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			p, err := resolveProject(deps, path)
+			proj, err := resolveProject(deps, path)
 			if err != nil {
 				return err
 			}
-			if err := project.NewStore(deps.ConfigRoot).Remove(p.Path); err != nil {
+			if err := project.NewStore(deps.ConfigRoot).Remove(proj.Path); err != nil {
 				return err
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "Removed project %s. Files on disk were not touched.\n", p.Path)
+			fmt.Fprintf(cmd.OutOrStdout(), "Removed project %s. Files on disk were not touched.\n", proj.Path)
 			return nil
 		},
 	}
@@ -96,8 +96,8 @@ func pickProfile(cmd *cobra.Command, deps Deps, name string) (profile.Profile, e
 		return profile.Profile{}, err
 	}
 	options := make([]huh.Option[int], 0, len(profiles)+1)
-	for i, p := range profiles {
-		options = append(options, huh.NewOption(p.Name, i))
+	for i, prof := range profiles {
+		options = append(options, huh.NewOption(prof.Name, i))
 	}
 	options = append(options, huh.NewOption("Create new…", createNew))
 	choice, err := selectOne(cmd, "Profile", options)
@@ -142,8 +142,6 @@ func pickStack(cmd *cobra.Command, deps Deps, name string) (stack.Stack, error) 
 // chosen option's value.
 func selectOne(cmd *cobra.Command, title string, options []huh.Option[int]) (int, error) {
 	var choice int
-	err := huh.NewForm(huh.NewGroup(
-		huh.NewSelect[int]().Title(title).Options(options...).Value(&choice),
-	)).WithInput(cmd.InOrStdin()).WithOutput(cmd.ErrOrStderr()).Run()
+	err := runForm(cmd, huh.NewSelect[int]().Title(title).Options(options...).Value(&choice))
 	return choice, err
 }

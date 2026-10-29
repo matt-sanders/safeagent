@@ -17,19 +17,19 @@ func newProjectUseProfileCommand(deps Deps) *cobra.Command {
 		Short: "Switch the Project's Profile",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			p, err := resolveProject(deps, path)
+			proj, err := resolveProject(deps, path)
 			if err != nil {
 				return err
 			}
-			pr, err := profile.NewStore(deps.ConfigRoot).FindByName(args[0])
+			prof, err := profile.NewStore(deps.ConfigRoot).FindByName(args[0])
 			if err != nil {
 				return err
 			}
-			p.ProfileID = pr.ID
-			if err := project.NewStore(deps.ConfigRoot).Update(p); err != nil {
+			proj.ProfileID = prof.ID
+			if err := project.NewStore(deps.ConfigRoot).Update(proj); err != nil {
 				return err
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "Project %s now uses profile %s.\n", p.Path, pr.Name)
+			fmt.Fprintf(cmd.OutOrStdout(), "Project %s now uses profile %s.\n", proj.Path, prof.Name)
 			return nil
 		},
 	}
@@ -44,7 +44,7 @@ func newProjectUseStackCommand(deps Deps) *cobra.Command {
 		Short: "Switch the Project's Stack",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			p, err := resolveProject(deps, path)
+			proj, err := resolveProject(deps, path)
 			if err != nil {
 				return err
 			}
@@ -52,11 +52,11 @@ func newProjectUseStackCommand(deps Deps) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			p.StackID = st.ID
-			if err := project.NewStore(deps.ConfigRoot).Update(p); err != nil {
+			proj.StackID = st.ID
+			if err := project.NewStore(deps.ConfigRoot).Update(proj); err != nil {
 				return err
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "Project %s now uses stack %s.\n", p.Path, st.Name)
+			fmt.Fprintf(cmd.OutOrStdout(), "Project %s now uses stack %s.\n", proj.Path, st.Name)
 			return nil
 		},
 	}

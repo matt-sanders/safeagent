@@ -51,13 +51,30 @@ func TestProjectInspectWithFlagShowsDetailsAndBaseMounts(t *testing.T) {
 		"Stack:    node22\n" +
 		"Image:    node22:work (not built)\n" +
 		"\nMounts:\n" +
-		"HOST" + strings.Repeat(" ", len(claude)-4) + "  CONTAINER\n" +
+		"HOST PATH" + strings.Repeat(" ", len(claude)-9) + "  CONTAINER PATH\n" +
 		dir + strings.Repeat(" ", len(claude)-len(dir)) + "  " + dir + "\n" +
 		claude + "  /claude\n" +
 		"\nExclusions:\n" +
 		"No exclusions.\n"
 	if out != want {
 		t.Fatalf("got:\n%s\nwant:\n%s", out, want)
+	}
+}
+
+func TestProjectInspectErrorsWhenProfileOrStackIsGone(t *testing.T) {
+	for _, kind := range []string{"profile", "stack"} {
+		t.Run(kind, func(t *testing.T) {
+			env := setup(t)
+			dir := mkdir(t, filepath.Join(t.TempDir(), "app"))
+			env.MustRun("project", "create", "-p", dir, "--profile", "work", "--stack", "node22")
+			writeFile(t, filepath.Join(env.ConfigRoot, kind+"s.json"), "[]")
+
+			_, err := env.Run("project", "inspect", "-p", dir)
+
+			if err == nil || !strings.Contains(err.Error(), "no longer exists") || !strings.Contains(err.Error(), "project use-"+kind) {
+				t.Fatalf("expected a clear missing-%s error, got %v", kind, err)
+			}
+		})
 	}
 }
 

@@ -54,11 +54,11 @@ func (s *Store) List() ([]Stack, error) {
 		return nil, nil
 	}
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("reading stacks: %w", err)
 	}
 	var stacks []Stack
 	if err := json.Unmarshal(data, &stacks); err != nil {
-		return nil, fmt.Errorf("reading %s: %w", s.recordsPath(), err)
+		return nil, fmt.Errorf("parsing stacks: %w", err)
 	}
 	return stacks, nil
 }
@@ -98,11 +98,11 @@ func (s *Store) Create(name, node string) (Stack, error) {
 	}
 
 	st := Stack{ID: ident.NewID(), Name: name, Node: node}
-	if err := os.MkdirAll(s.Dir(st.ID), 0o755); err != nil {
-		return Stack{}, err
+	if err := os.MkdirAll(s.Dir(st.ID), 0o700); err != nil {
+		return Stack{}, fmt.Errorf("creating stack folder: %w", err)
 	}
-	if err := os.WriteFile(s.DockerfilePath(st.ID), nil, 0o644); err != nil {
-		return Stack{}, err
+	if err := os.WriteFile(s.DockerfilePath(st.ID), nil, 0o600); err != nil {
+		return Stack{}, fmt.Errorf("creating stack Dockerfile: %w", err)
 	}
 	if err := s.save(append(stacks, st)); err != nil {
 		return Stack{}, err
@@ -115,10 +115,13 @@ func (s *Store) save(stacks []Stack) error {
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(s.root, 0o755); err != nil {
-		return err
+	if err := os.MkdirAll(s.root, 0o700); err != nil {
+		return fmt.Errorf("creating config root: %w", err)
 	}
-	return os.WriteFile(s.recordsPath(), data, 0o600)
+	if err := os.WriteFile(s.recordsPath(), data, 0o600); err != nil {
+		return fmt.Errorf("writing stacks: %w", err)
+	}
+	return nil
 }
 
 // FindByID returns the Stack with the given ID, or an error if no Stack has

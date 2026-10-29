@@ -8,7 +8,7 @@ import (
 	"safeagent/image"
 )
 
-func TestListExistingParsesSafeagentRefsAndListForFilters(t *testing.T) {
+func TestListExistingParsesSafeagentRefsAndExistingWithFilters(t *testing.T) {
 	d := dockertest.New()
 	d.AddImage("safeagent/s1:p1")
 	d.AddImage("safeagent/s1:p2")
@@ -28,10 +28,10 @@ func TestListExistingParsesSafeagentRefsAndListForFilters(t *testing.T) {
 	if !reflect.DeepEqual(imgs, want) {
 		t.Fatalf("ListExisting = %+v", imgs)
 	}
-	if got, _ := image.ListForStack(d, "s1"); !reflect.DeepEqual(got, []string{"safeagent/s1:p1", "safeagent/s1:p2"}) {
-		t.Errorf("ListForStack = %v", got)
+	if got, _ := image.ExistingWithStack(d, "s1"); !reflect.DeepEqual(got, want[:2]) {
+		t.Errorf("ExistingWithStack = %+v", got)
 	}
-	if got, _ := image.ListForProfile(d, "p1"); !reflect.DeepEqual(got, []string{"safeagent/s1:p1", "safeagent/s2:p1"}) {
-		t.Errorf("ListForProfile = %v", got)
+	if got, _ := image.ExistingWithProfile(d, "p1"); !reflect.DeepEqual(got, []image.Existing{want[0], want[2]}) {
+		t.Errorf("ExistingWithProfile = %+v", got)
 	}
 }

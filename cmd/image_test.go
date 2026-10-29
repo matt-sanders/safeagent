@@ -86,7 +86,7 @@ func TestImageRmRemovesImageAndListsProjectsThatWillRebuildIt(t *testing.T) {
 	if env.Docker.HasImage(ref) {
 		t.Fatal("image still present")
 	}
-	want := "Removed image node22:work\n" +
+	want := "Removed image node22:work.\n" +
 		"These Projects will rebuild it at their next session:\n" +
 		"  " + a + "\n" +
 		"  " + b + "\n"
@@ -102,7 +102,7 @@ func TestImageRmWithNoProjectsJustRemoves(t *testing.T) {
 
 	out := env.MustRun("image", "rm", "node22:work")
 
-	if out != "Removed image node22:work\n" || env.Docker.HasImage(ref) {
+	if out != "Removed image node22:work.\n" || env.Docker.HasImage(ref) {
 		t.Fatalf("got %q, image present: %v", out, env.Docker.HasImage(ref))
 	}
 }
@@ -113,7 +113,6 @@ func TestImageRmErrors(t *testing.T) {
 		"node22":      "expected <stack>:<profile>",
 		"node22:nope": `no profile named "nope"`,
 		"nope:work":   `no stack named "nope"`,
-		"node22:work": "image node22:work is not built",
 		"Node22:work": "invalid image",
 	}
 	for arg, wantErr := range cases {
@@ -121,6 +120,27 @@ func TestImageRmErrors(t *testing.T) {
 		if err == nil || !strings.Contains(err.Error(), wantErr) {
 			t.Errorf("image rm %s: err = %v, want containing %q", arg, err, wantErr)
 		}
+	}
+	if len(env.Docker.Removed) != 0 {
+		t.Fatalf("removed %v", env.Docker.Removed)
+	}
+}
+
+func TestImageRmOfUnbuiltImageSucceedsWithNoteAndListsProjects(t *testing.T) {
+	env := setup(t)
+	a := mkdir(t, filepath.Join(t.TempDir(), "a"))
+	env.MustRun("project", "create", "-p", a, "--profile", "work", "--stack", "node22")
+
+	out, err := env.Run("image", "rm", "node22:work")
+
+	if err != nil {
+		t.Fatalf("expected success, got %v", err)
+	}
+	want := "Image node22:work is not built; nothing to remove.\n" +
+		"These Projects will build it at their next session:\n" +
+		"  " + a + "\n"
+	if out != want {
+		t.Fatalf("got:\n%s\nwant:\n%s", out, want)
 	}
 	if len(env.Docker.Removed) != 0 {
 		t.Fatalf("removed %v", env.Docker.Removed)
@@ -142,7 +162,7 @@ func TestImageRebuildOneRebuildsJustThatImage(t *testing.T) {
 	if env.Docker.Builds[0].BuildArgs["NODE_VERSION"] != "22" {
 		t.Fatalf("build args = %v", env.Docker.Builds[0].BuildArgs)
 	}
-	if out != "Rebuilt image node22:work\n" {
+	if out != "Rebuilding image node22:work...\nRebuilt image node22:work.\n" {
 		t.Fatalf("got %q", out)
 	}
 }
@@ -163,7 +183,7 @@ func TestImageRebuildAllRebuildsEveryExistingImage(t *testing.T) {
 	if got := builtTags(env); !slices.Equal(got, want) {
 		t.Fatalf("builds = %v, want %v", got, want)
 	}
-	if !strings.Contains(out, "Rebuilt image node22:work\n") || !strings.Contains(out, "Rebuilt image node22:home\n") {
+	if !strings.Contains(out, "Rebuilt image node22:work.\n") || !strings.Contains(out, "Rebuilt image node22:home.\n") {
 		t.Fatalf("got %q", out)
 	}
 }
@@ -196,6 +216,7 @@ func TestImageRebuildAllWithNoImages(t *testing.T) {
 
 func TestImageRebuildErrors(t *testing.T) {
 	env := setup(t)
+	env.MustRun("profile", "create", "--name", "home")
 	env.Docker.AddImage(imageRef(t, env, "node22", "work"))
 	cases := []struct {
 		args    []string
@@ -206,6 +227,7 @@ func TestImageRebuildErrors(t *testing.T) {
 		{[]string{"image", "rebuild", "node22-work"}, "expected <stack>:<profile>"},
 		{[]string{"image", "rebuild", "node22:nope"}, `no profile named "nope"`},
 		{[]string{"image", "rebuild", "nope:work"}, `no stack named "nope"`},
+		{[]string{"image", "rebuild", "node22:home"}, "image node22:home is not built; it will be built the next time a session needs it"},
 	}
 	for _, c := range cases {
 		_, err := env.Run(c.args...)

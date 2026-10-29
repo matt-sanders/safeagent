@@ -72,16 +72,14 @@ func newExclusionsAddCommand(deps Deps) *cobra.Command {
 			if len(args) == 1 {
 				exclusion = args[0]
 			} else {
-				err := huh.NewForm(huh.NewGroup(
-					huh.NewInput().
-						Title("Path to exclude").
-						Description(exclusionsNote).
-						Value(&exclusion).
-						Validate(func(s string) error {
-							_, err := project.CleanExclusion(s)
-							return err
-						}),
-				)).WithInput(cmd.InOrStdin()).WithOutput(cmd.ErrOrStderr()).Run()
+				err := runForm(cmd, huh.NewInput().
+					Title("Path to exclude").
+					Description(exclusionsNote).
+					Value(&exclusion).
+					Validate(func(s string) error {
+						_, err := project.CleanExclusion(s)
+						return err
+					}))
 				if err != nil {
 					return err
 				}

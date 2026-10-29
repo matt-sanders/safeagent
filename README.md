@@ -21,7 +21,7 @@ A session is made up of three things: **who** the agent is (a Profile), **what**
 
 **Image**: The runnable combination of one Stack and one Profile. A Project's Stack and Profile together decide which Image a session runs. You never have to build Images by hand: safeagent builds one the first time a session needs it. On the command line an Image is written `<stack>:<profile>`, e.g. `node22:work`.
 
-**Name**: The short, lowercase handle you type to refer to a Profile or Stack. Names can only use lowercase letters, digits, `-` and `_`. A Name is unique among Profiles, and among Stacks, but a Stack and a Profile can share a Name.
+**Name**: The short, lowercase handle you type to refer to a Profile or Stack. Names must start with a lowercase letter or digit, and can only use lowercase letters, digits, `-` and `_`. A Name is unique among Profiles, and among Stacks, but a Stack and a Profile can share a Name.
 
 **Session**: One running container of an Image, working inside a Project.
 
@@ -192,9 +192,9 @@ safeagent image rm <stack>:<profile>
 
 `image ls` lists only the Images that have actually been built. An Image whose Stack or Profile has gone is shown with the raw ID instead of a Name.
 
-`image rebuild` rebuilds one Image (building it even if it doesn't exist yet), or every built Image with `--all`. Pass exactly one of the two. Updating safeagent doesn't update your Images, so run `safeagent image rebuild --all` after updating to pick up the new base image. `--all` skips (and reports) Images whose Stack or Profile no longer exists.
+`image rebuild` rebuilds one existing Image, or every built Image with `--all`. It errors if the Image isn't built yet, since it will be built the next time a Session needs it. Pass exactly one of the two. Updating safeagent doesn't update your Images, so run `safeagent image rebuild --all` after updating to pick up the new base image. `--all` skips (and reports) Images whose Stack or Profile no longer exists.
 
-`image rm` removes a built Image to reclaim disk space, and lists the Projects that will rebuild it at their next Session. It errors if the Image isn't built.
+`image rm` removes a built Image to reclaim disk space, and lists the Projects that will rebuild it at their next Session. If the Image isn't built, it says so (still listing the Projects that use it) and removes nothing.
 
 ## Sessions
 

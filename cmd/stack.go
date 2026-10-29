@@ -75,8 +75,7 @@ func createStack(cmd *cobra.Command, deps Deps, name, node string, askName, askN
 		fields = append(fields, huh.NewInput().Title("Node version").Value(&node))
 	}
 	if len(fields) > 0 {
-		err := huh.NewForm(huh.NewGroup(fields...)).WithInput(cmd.InOrStdin()).WithOutput(cmd.ErrOrStderr()).Run()
-		if err != nil {
+		if err := runForm(cmd, fields...); err != nil {
 			return stack.Stack{}, err
 		}
 	}
@@ -84,6 +83,6 @@ func createStack(cmd *cobra.Command, deps Deps, name, node string, askName, askN
 	if err != nil {
 		return stack.Stack{}, err
 	}
-	fmt.Fprintf(cmd.OutOrStdout(), "Created stack %s (%s, node %s)\n", st.Name, st.ID, st.Node)
+	fmt.Fprintf(cmd.OutOrStdout(), "Created stack %s (%s, node %s).\n", st.Name, st.ID, st.Node)
 	return st, nil
 }

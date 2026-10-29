@@ -53,7 +53,7 @@ func TestProfileCreateMakesFolderWithClaudeConfigAndEmptyDockerfile(t *testing.T
 func TestProfileCreateRejectsInvalidNames(t *testing.T) {
 	env := clitest.New(t)
 
-	for _, name := range []string{"", "Work", "my profile", "a.b", "über", "x/y"} {
+	for _, name := range []string{"", "Work", "my profile", "a.b", "über", "x/y", "-x", "_x"} {
 		_, err := env.Run("profile", "create", "--name", name)
 		if err == nil {
 			t.Errorf("expected name %q to be rejected", name)

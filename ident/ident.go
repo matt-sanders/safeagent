@@ -9,16 +9,17 @@ import (
 	"regexp"
 )
 
-var namePattern = regexp.MustCompile(`^[a-z0-9_-]+$`)
+var namePattern = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]*$`)
 
-// ValidateName reports whether name is a valid Name: non-empty and made only
-// of lowercase letters, digits, '-' and '_'.
+// ValidateName reports whether name is a valid Name: non-empty, starting with
+// a lowercase letter or digit (so it can't be mistaken for a flag), and made
+// only of lowercase letters, digits, '-' and '_'.
 func ValidateName(name string) error {
 	if name == "" {
 		return fmt.Errorf("name is required")
 	}
 	if !namePattern.MatchString(name) {
-		return fmt.Errorf("invalid name %q: use only lowercase letters, digits, '-' and '_'", name)
+		return fmt.Errorf("invalid name %q: start with a lowercase letter or digit, then use only lowercase letters, digits, '-' and '_'", name)
 	}
 	return nil
 }

@@ -16,7 +16,7 @@ import (
 func newProfileCommand(deps Deps) *cobra.Command {
 	c := &cobra.Command{
 		Use:   "profile",
-		Short: "Manage Profiles (the agent's identity)",
+		Short: "Manage Profiles (who the agent is)",
 		Args:  cobra.NoArgs,
 	}
 	c.AddCommand(newProfileCreateCommand(deps), newProfileLsCommand(deps), newProfileRmCommand(deps), newProfileDockerfileCommand(deps), newProfileRebuildCommand(deps))
@@ -35,7 +35,7 @@ func newProfileCreateCommand(deps Deps) *cobra.Command {
 			return err
 		},
 	}
-	c.Flags().StringVar(&name, "name", "", "Profile name (lowercase letters, digits, '-' and '_')")
+	c.Flags().StringVar(&name, "name", "", "Name of the Profile (starts with a lowercase letter or digit; then lowercase letters, digits, '-' and '_')")
 	return c
 }
 
@@ -44,19 +44,17 @@ func newProfileCreateCommand(deps Deps) *cobra.Command {
 // picker's "Create new…" option runs it too.
 func createProfile(cmd *cobra.Command, deps Deps, name string, ask bool) (profile.Profile, error) {
 	if ask {
-		err := huh.NewForm(huh.NewGroup(
-			huh.NewInput().Title("Profile name").Value(&name).Validate(ident.ValidateName),
-		)).WithInput(cmd.InOrStdin()).WithOutput(cmd.ErrOrStderr()).Run()
+		err := runForm(cmd, huh.NewInput().Title("Profile name").Value(&name).Validate(ident.ValidateName))
 		if err != nil {
 			return profile.Profile{}, err
 		}
 	}
-	p, err := profile.NewStore(deps.ConfigRoot).Create(name)
+	prof, err := profile.NewStore(deps.ConfigRoot).Create(name)
 	if err != nil {
 		return profile.Profile{}, err
 	}
-	fmt.Fprintf(cmd.OutOrStdout(), "Created profile %s (%s).\n", p.Name, p.ID)
-	return p, nil
+	fmt.Fprintf(cmd.OutOrStdout(), "Created profile %s (%s).\n", prof.Name, prof.ID)
+	return prof, nil
 }
 
 func newProfileLsCommand(deps Deps) *cobra.Command {
@@ -73,9 +71,9 @@ func newProfileLsCommand(deps Deps) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			rows := make([][]string, 0, len(profiles))
-			for _, p := range profiles {
-				rows = append(rows, []string{p.Name, p.ID, strconv.Itoa(len(p.Mounts)), strconv.Itoa(counts[p.ID])})
+			rows := make([][]string, len(profiles))
+			for i, prof := range profiles {
+				rows[i] = []string{prof.Name, prof.ID, strconv.Itoa(len(prof.Mounts)), strconv.Itoa(counts[prof.ID])}
 			}
 			return table.Print(cmd.OutOrStdout(), "No profiles.", []string{"NAME", "ID", "MOUNTS", "PROJECTS"}, rows)
 		},

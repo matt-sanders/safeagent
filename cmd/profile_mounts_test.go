@@ -54,6 +54,18 @@ func TestProfileMountsAddRejectsInvalidMounts(t *testing.T) {
 	}
 }
 
+func TestProfileMountsAddResolvesRelativeHostPathAgainstCurrentDirectory(t *testing.T) {
+	env := setup(t)
+	host := mkdir(t, filepath.Join(env.Cwd, "creds"))
+
+	env.MustRun("profile", "mounts", "add", "work", "--host", "creds", "--container", "/creds")
+
+	ls := env.MustRun("profile", "mounts", "ls", "work")
+	if !strings.Contains(ls, host+" ") {
+		t.Fatalf("expected host path %s, got:\n%s", host, ls)
+	}
+}
+
 func TestProfileMountsAddShowsTheProfileFolder(t *testing.T) {
 	env := setup(t)
 
