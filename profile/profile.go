@@ -1,144 +1,245 @@
+// Package profile stores Profiles: the "who" of a Session. Records live in
+// profiles.json under the v2 config root, and each Profile owns a folder at
+// profiles/<id>/ holding its Claude config folder and Dockerfile fragment.
 package profile
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"safeagent/ident"
 )
 
-// Profile represents a named environment configuration.
+// Mount is a host path a Profile makes available inside every Session.
+type Mount struct {
+	HostPath      string `json:"host_path"`
+	ContainerPath string `json:"container_path"`
+}
+
+// Profile is one stored Profile record.
 type Profile struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	NodeVersion string `json:"node_version"`
-	BunVersion  string `json:"bun_version,omitempty"`
+	ID     string  `json:"id"`
+	Name   string  `json:"name"`
+	Mounts []Mount `json:"mounts"`
 }
 
-// Store handles profile persistence to a JSON file.
+// Store reads and writes Profiles under a config root.
 type Store struct {
-	filePath string
+	root string
 }
 
-// NewStore creates a Store that reads/writes profiles at filePath.
-func NewStore(filePath string) *Store {
-	return &Store{filePath: filePath}
+// NewStore returns a Store rooted at the v2 config root.
+func NewStore(root string) *Store {
+	return &Store{root: root}
 }
 
-func generateID() string {
-	b := make([]byte, 4)
-	if _, err := rand.Read(b); err != nil {
-		panic(fmt.Sprintf("failed to generate random ID: %v", err))
+func (s *Store) recordsPath() string {
+	return filepath.Join(s.root, "profiles.json")
+}
+
+// Dir is the Profile's own folder on the host.
+func (s *Store) Dir(id string) string {
+	return filepath.Join(s.root, "profiles", id)
+}
+
+// ClaudeDir is the Profile's Claude config folder (mounted at /claude).
+func (s *Store) ClaudeDir(id string) string {
+	return filepath.Join(s.Dir(id), "claude")
+}
+
+// DockerfilePath is the Profile's Dockerfile fragment.
+func (s *Store) DockerfilePath(id string) string {
+	return filepath.Join(s.Dir(id), "Dockerfile")
+}
+
+// List returns every Profile in creation order.
+func (s *Store) List() ([]Profile, error) {
+	data, err := os.ReadFile(s.recordsPath())
+	if errors.Is(err, os.ErrNotExist) {
+		return nil, nil
 	}
-	return hex.EncodeToString(b)
-}
-
-// Load reads all profiles from the file.
-// Returns an empty slice if the file does not exist.
-func (s *Store) Load() ([]Profile, error) {
-	data, err := os.ReadFile(s.filePath)
 	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return []Profile{}, nil
-		}
-		return nil, fmt.Errorf("failed to read profiles file: %w", err)
+		return nil, fmt.Errorf("reading profiles: %w", err)
 	}
-
 	var profiles []Profile
 	if err := json.Unmarshal(data, &profiles); err != nil {
-		return nil, fmt.Errorf("failed to parse profiles file: %w", err)
+		return nil, fmt.Errorf("parsing profiles: %w", err)
 	}
-
 	return profiles, nil
 }
 
-// Add appends a profile, generating an ID automatically.
-// Returns an error if a profile with the same name already exists.
-func (s *Store) Add(p Profile) (Profile, error) {
-	profiles, err := s.Load()
+// FindByName returns the Profile with the given Name, or an error naming it
+// if there is none.
+func (s *Store) FindByName(name string) (Profile, error) {
+	profiles, err := s.List()
 	if err != nil {
 		return Profile{}, err
 	}
+	for _, p := range profiles {
+		if p.Name == name {
+			return p, nil
+		}
+	}
+	return Profile{}, fmt.Errorf("no profile named %q", name)
+}
 
-	for _, existing := range profiles {
-		if existing.Name == p.Name {
-			return Profile{}, fmt.Errorf("profile %q already exists", p.Name)
+// Create validates name, then stores a new Profile with a fresh ID and
+// creates its folder, Claude config folder and empty Dockerfile fragment.
+func (s *Store) Create(name string) (Profile, error) {
+	if err := ident.ValidateName(name); err != nil {
+		return Profile{}, err
+	}
+	profiles, err := s.List()
+	if err != nil {
+		return Profile{}, err
+	}
+	for _, p := range profiles {
+		if p.Name == name {
+			return Profile{}, fmt.Errorf("a profile named %q already exists", name)
 		}
 	}
 
-	p.ID = generateID()
-	profiles = append(profiles, p)
-
-	data, err := json.MarshalIndent(profiles, "", "  ")
-	if err != nil {
-		return Profile{}, fmt.Errorf("failed to marshal profiles: %w", err)
+	p := Profile{ID: ident.NewID(), Name: name, Mounts: []Mount{}}
+	if err := os.MkdirAll(s.ClaudeDir(p.ID), 0o700); err != nil {
+		return Profile{}, fmt.Errorf("creating profile folder: %w", err)
 	}
-
-	if err := os.WriteFile(s.filePath, data, 0600); err != nil {
-		return Profile{}, fmt.Errorf("failed to write profiles file: %w", err)
+	if err := os.WriteFile(s.DockerfilePath(p.ID), nil, 0o600); err != nil {
+		return Profile{}, fmt.Errorf("creating profile Dockerfile: %w", err)
 	}
-
+	if err := s.save(append(profiles, p)); err != nil {
+		return Profile{}, err
+	}
 	return p, nil
 }
 
-// Remove deletes the profile with the given ID from the store and removes its
-// data directory (~/.safeagent/profiles/{id}/).
-// Returns an error if no profile with that ID exists.
-func (s *Store) Remove(id string) error {
-	profiles, err := s.Load()
+func (s *Store) save(profiles []Profile) error {
+	data, err := json.MarshalIndent(profiles, "", "  ")
 	if err != nil {
 		return err
 	}
-
-	idx := -1
-	var target Profile
-	for i, p := range profiles {
-		if p.ID == id {
-			idx = i
-			target = p
-			break
-		}
+	if err := os.MkdirAll(s.root, 0o700); err != nil {
+		return fmt.Errorf("creating config root: %w", err)
 	}
-	if idx == -1 {
-		return fmt.Errorf("profile %q not found", id)
+	if err := os.WriteFile(s.recordsPath(), data, 0o600); err != nil {
+		return fmt.Errorf("writing profiles: %w", err)
 	}
-
-	profiles = append(profiles[:idx], profiles[idx+1:]...)
-
-	data, err := json.MarshalIndent(profiles, "", "  ")
-	if err != nil {
-		return fmt.Errorf("failed to marshal profiles: %w", err)
-	}
-	if err := os.WriteFile(s.filePath, data, 0600); err != nil {
-		return fmt.Errorf("failed to write profiles file: %w", err)
-	}
-
-	dir := filepath.Join(filepath.Dir(s.filePath), "profiles", target.ID)
-	if err := os.RemoveAll(dir); err != nil {
-		return fmt.Errorf("failed to remove profile directory: %w", err)
-	}
-
 	return nil
 }
 
-// DockerfileExtraPath returns the path to the extra Dockerfile fragment for
-// the given profile ID (~/.safeagent/profile-{id}.dockerfile).
-func (s *Store) DockerfileExtraPath(profileID string) string {
-	return filepath.Join(filepath.Dir(s.filePath), "profiles", profileID, "dockerfile")
+// FindByID returns the Profile with the given ID, or an error if no Profile
+// has it (e.g. it was removed after a Project chose it).
+func (s *Store) FindByID(id string) (Profile, error) {
+	profiles, err := s.List()
+	if err != nil {
+		return Profile{}, err
+	}
+	for _, p := range profiles {
+		if p.ID == id {
+			return p, nil
+		}
+	}
+	return Profile{}, fmt.Errorf("no profile with ID %q", id)
 }
 
-// LoadDockerfileExtra reads the extra Dockerfile fragment for a profile.
-// Returns an empty string if no file exists yet.
-func (s *Store) LoadDockerfileExtra(profileID string) (string, error) {
-	data, err := os.ReadFile(s.DockerfileExtraPath(profileID))
-	if errors.Is(err, os.ErrNotExist) {
-		return "", nil
-	}
+// Remove deletes the Profile record with the given ID and its folder.
+func (s *Store) Remove(id string) error {
+	profiles, err := s.List()
 	if err != nil {
-		return "", fmt.Errorf("failed to read extra dockerfile: %w", err)
+		return err
 	}
-	return string(data), nil
+	kept := make([]Profile, 0, len(profiles))
+	for _, p := range profiles {
+		if p.ID != id {
+			kept = append(kept, p)
+		}
+	}
+	if len(kept) == len(profiles) {
+		return fmt.Errorf("no profile with ID %q", id)
+	}
+	if err := s.save(kept); err != nil {
+		return err
+	}
+	if err := os.RemoveAll(s.Dir(id)); err != nil {
+		return fmt.Errorf("removing profile folder: %w", err)
+	}
+	return nil
+}
+
+// ClaudeMountPath is where every Session sees the Profile's Claude config
+// folder; no Mount may use it.
+const ClaudeMountPath = "/claude"
+
+// AddMount validates m and appends it to the Mounts of the Profile with the
+// given ID. The host path must exist; the container path must be absolute, not
+// /claude, and not already used by another of the Profile's Mounts. Paths are
+// cleaned; a relative host path is resolved against the process's working
+// directory, so callers with their own notion of cwd should pass it absolute.
+func (s *Store) AddMount(id string, m Mount) (Mount, error) {
+	profiles, err := s.List()
+	if err != nil {
+		return Mount{}, err
+	}
+	i := indexByID(profiles, id)
+	if i < 0 {
+		return Mount{}, fmt.Errorf("no profile with ID %q", id)
+	}
+	if m.HostPath == "" {
+		return Mount{}, errors.New("host path is required")
+	}
+	host, err := filepath.Abs(m.HostPath)
+	if err != nil {
+		return Mount{}, err
+	}
+	if _, err := os.Stat(host); err != nil {
+		return Mount{}, fmt.Errorf("host path %s does not exist", host)
+	}
+	if !filepath.IsAbs(m.ContainerPath) {
+		return Mount{}, fmt.Errorf("container path %q must be absolute", m.ContainerPath)
+	}
+	target := filepath.Clean(m.ContainerPath)
+	if target == ClaudeMountPath {
+		return Mount{}, fmt.Errorf("container path %s is reserved for the Profile's Claude config", ClaudeMountPath)
+	}
+	for _, existing := range profiles[i].Mounts {
+		if existing.ContainerPath == target {
+			return Mount{}, fmt.Errorf("profile %q already has a mount at %s", profiles[i].Name, target)
+		}
+	}
+	added := Mount{HostPath: host, ContainerPath: target}
+	profiles[i].Mounts = append(profiles[i].Mounts, added)
+	return added, s.save(profiles)
+}
+
+// RemoveMount removes the Mount at containerPath from the Profile with the
+// given ID.
+func (s *Store) RemoveMount(id, containerPath string) error {
+	profiles, err := s.List()
+	if err != nil {
+		return err
+	}
+	i := indexByID(profiles, id)
+	if i < 0 {
+		return fmt.Errorf("no profile with ID %q", id)
+	}
+	target := filepath.Clean(containerPath)
+	mounts := profiles[i].Mounts
+	for j, m := range mounts {
+		if m.ContainerPath == target {
+			profiles[i].Mounts = append(mounts[:j:j], mounts[j+1:]...)
+			return s.save(profiles)
+		}
+	}
+	return fmt.Errorf("profile %q has no mount at %s", profiles[i].Name, target)
+}
+
+func indexByID(profiles []Profile, id string) int {
+	for i, p := range profiles {
+		if p.ID == id {
+			return i
+		}
+	}
+	return -1
 }
