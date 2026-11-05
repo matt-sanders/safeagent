@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"slices"
 	"text/tabwriter"
 
 	"safeagent/docker"
@@ -68,8 +69,9 @@ func imageState(deps Deps, proj project.Project) (string, error) {
 }
 
 // sessionMounts returns the mounts a Session in proj gets: the Project at its
-// own path, the Profile's Claude config folder at /claude, then the Profile's
-// Mounts. It errors if the Profile no longer exists.
+// own path, the Profile's Claude config folder at /claude, the Profile's Mounts,
+// then the Project's Mounts. A Project Mount replaces a Profile Mount at the
+// same container path. It errors if the Profile no longer exists.
 func sessionMounts(deps Deps, proj project.Project) ([]docker.Mount, error) {
 	store := profile.NewStore(deps.ConfigRoot)
 	prof, err := store.FindByID(proj.ProfileID)
@@ -81,6 +83,14 @@ func sessionMounts(deps Deps, proj project.Project) ([]docker.Mount, error) {
 		{Source: store.ClaudeDir(prof.ID), Target: profile.ClaudeMountPath},
 	}
 	for _, m := range prof.Mounts {
+		replaced := slices.ContainsFunc(proj.Mounts, func(own profile.Mount) bool {
+			return own.ContainerPath == m.ContainerPath
+		})
+		if !replaced {
+			mounts = append(mounts, docker.Mount{Source: m.HostPath, Target: m.ContainerPath})
+		}
+	}
+	for _, m := range proj.Mounts {
 		mounts = append(mounts, docker.Mount{Source: m.HostPath, Target: m.ContainerPath})
 	}
 	return mounts, nil

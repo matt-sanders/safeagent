@@ -29,7 +29,7 @@ One running container of an Image, working inside a Project.
 _Avoid_: Instance, run
 
 **Mount**:
-A host path that a Profile makes available inside every Session using that Profile.
+A host path that a Profile makes available inside every Session using that Profile, or that a Project makes available inside its own Sessions.
 _Avoid_: Volume, bind
 
 **Exclusion**:

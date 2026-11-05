@@ -10,6 +10,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"safeagent/profile"
 )
 
 // ErrNotFound is returned (wrapped) when no Project matches a lookup.
@@ -17,10 +19,11 @@ var ErrNotFound = errors.New("no project found")
 
 // Project is one stored Project record.
 type Project struct {
-	Path       string   `json:"path"`
-	ProfileID  string   `json:"profile_id"`
-	StackID    string   `json:"stack_id"`
-	Exclusions []string `json:"exclusions"`
+	Path       string          `json:"path"`
+	ProfileID  string          `json:"profile_id"`
+	StackID    string          `json:"stack_id"`
+	Exclusions []string        `json:"exclusions"`
+	Mounts     []profile.Mount `json:"mounts"`
 }
 
 // Store reads and writes Projects under a config root.
@@ -112,6 +115,9 @@ func (s *Store) Create(p Project) error {
 	}
 	if p.Exclusions == nil {
 		p.Exclusions = []string{}
+	}
+	if p.Mounts == nil {
+		p.Mounts = []profile.Mount{}
 	}
 	return s.save(append(projects, p))
 }
@@ -239,4 +245,46 @@ func (s *Store) RemoveExclusion(projectPath, exclusion string) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("%s is not excluded in project %s", clean, p.Path)
+}
+
+// AddMount validates m (see profile.CleanMount) and appends it to the Mounts of
+// the Project at exactly projectPath, rejecting the Project's own path (where
+// the Project itself is mounted) and a container path another of its Mounts
+// already uses. It returns the stored form.
+func (s *Store) AddMount(projectPath string, m profile.Mount) (profile.Mount, error) {
+	added, err := profile.CleanMount(m)
+	if err != nil {
+		return profile.Mount{}, err
+	}
+	p, err := s.Get(projectPath)
+	if err != nil {
+		return profile.Mount{}, err
+	}
+	if added.ContainerPath == p.Path {
+		return profile.Mount{}, fmt.Errorf("container path %s is the project path, where the project itself is mounted", p.Path)
+	}
+	for _, existing := range p.Mounts {
+		if existing.ContainerPath == added.ContainerPath {
+			return profile.Mount{}, fmt.Errorf("project %s already has a mount at %s", p.Path, added.ContainerPath)
+		}
+	}
+	p.Mounts = append(p.Mounts, added)
+	return added, s.Update(p)
+}
+
+// RemoveMount removes the Mount at containerPath from the Project at exactly
+// projectPath, erroring if it isn't there.
+func (s *Store) RemoveMount(projectPath, containerPath string) error {
+	p, err := s.Get(projectPath)
+	if err != nil {
+		return err
+	}
+	target := filepath.Clean(containerPath)
+	for i, m := range p.Mounts {
+		if m.ContainerPath == target {
+			p.Mounts = append(p.Mounts[:i], p.Mounts[i+1:]...)
+			return s.Update(p)
+		}
+	}
+	return fmt.Errorf("project %s has no mount at %s", p.Path, target)
 }

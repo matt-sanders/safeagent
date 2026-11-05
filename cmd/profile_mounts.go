@@ -32,11 +32,7 @@ func newProfileMountsLsCommand(deps Deps) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			rows := make([][]string, len(prof.Mounts))
-			for i, m := range prof.Mounts {
-				rows[i] = []string{m.HostPath, m.ContainerPath}
-			}
-			return printMounts(cmd.OutOrStdout(), rows)
+			return printMounts(cmd.OutOrStdout(), mountRows(prof.Mounts))
 		},
 	}
 }
@@ -55,29 +51,11 @@ func newProfileMountsAddCommand(deps Deps) *cobra.Command {
 			}
 			out := cmd.OutOrStdout()
 			fmt.Fprintf(out, "Profile folder (for reference): %s\n", store.Dir(prof.ID))
-			fmt.Fprintf(out, "Container home directory: /home/developer\n")
-
-			var fields []huh.Field
-			if !cmd.Flags().Changed("host") {
-				fields = append(fields, huh.NewInput().Title("Host path").Value(&host))
+			m, err := readMount(cmd, deps, host, container)
+			if err != nil {
+				return err
 			}
-			if !cmd.Flags().Changed("container") {
-				fields = append(fields, huh.NewInput().Title("Container path").Value(&container))
-			}
-			if len(fields) > 0 {
-				if err := runForm(cmd, fields...); err != nil {
-					return err
-				}
-			}
-			if host != "" && !filepath.IsAbs(host) {
-				cwd, err := deps.cwd()
-				if err != nil {
-					return err
-				}
-				host = filepath.Join(cwd, host)
-			}
-
-			m, err := store.AddMount(prof.ID, profile.Mount{HostPath: host, ContainerPath: container})
+			m, err = store.AddMount(prof.ID, m)
 			if err != nil {
 				return err
 			}
@@ -85,8 +63,7 @@ func newProfileMountsAddCommand(deps Deps) *cobra.Command {
 			return nil
 		},
 	}
-	c.Flags().StringVar(&host, "host", "", "Host path to mount (must exist; relative to the current directory)")
-	c.Flags().StringVar(&container, "container", "", "Absolute path inside the container")
+	addMountFlags(c, &host, &container)
 	return c
 }
 
@@ -110,8 +87,51 @@ func newProfileMountsRmCommand(deps Deps) *cobra.Command {
 	}
 }
 
+// addMountFlags registers the --host and --container flags of `mounts add`.
+func addMountFlags(c *cobra.Command, host, container *string) {
+	c.Flags().StringVar(host, "host", "", "Host path to mount (must exist; relative to the current directory)")
+	c.Flags().StringVar(container, "container", "", "Absolute path inside the container")
+}
+
+// readMount builds the Mount for `mounts add` from the --host and --container
+// values, prompting for whichever flag wasn't passed. A relative host path is
+// resolved against the current directory.
+func readMount(cmd *cobra.Command, deps Deps, host, container string) (profile.Mount, error) {
+	fmt.Fprintf(cmd.OutOrStdout(), "Container home directory: /home/developer\n")
+
+	var fields []huh.Field
+	if !cmd.Flags().Changed("host") {
+		fields = append(fields, huh.NewInput().Title("Host path").Value(&host))
+	}
+	if !cmd.Flags().Changed("container") {
+		fields = append(fields, huh.NewInput().Title("Container path").Value(&container))
+	}
+	if len(fields) > 0 {
+		if err := runForm(cmd, fields...); err != nil {
+			return profile.Mount{}, err
+		}
+	}
+	if host != "" && !filepath.IsAbs(host) {
+		cwd, err := deps.cwd()
+		if err != nil {
+			return profile.Mount{}, err
+		}
+		host = filepath.Join(cwd, host)
+	}
+	return profile.Mount{HostPath: host, ContainerPath: container}, nil
+}
+
+// mountRows converts stored Mounts to printMounts rows.
+func mountRows(mounts []profile.Mount) [][]string {
+	rows := make([][]string, len(mounts))
+	for i, m := range mounts {
+		rows[i] = []string{m.HostPath, m.ContainerPath}
+	}
+	return rows
+}
+
 // printMounts prints rows of (host path, container path) as the Mounts table
-// shared by `profile mounts ls` and `project inspect`.
+// shared by `profile mounts ls`, `project mounts ls` and `project inspect`.
 func printMounts(w io.Writer, rows [][]string) error {
 	return table.Print(w, "No mounts.", []string{"HOST PATH", "CONTAINER PATH"}, rows)
 }

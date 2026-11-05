@@ -25,7 +25,7 @@ A session is made up of three things: **who** the agent is (a Profile), **what**
 
 **Session**: One running container of an Image, working inside a Project.
 
-**Mount**: A host path that a Profile makes available inside every Session using that Profile. Handy for things like your gh config or SSH keys.
+**Mount**: A host path that a Profile makes available inside every Session using that Profile, or that a Project makes available inside its own Sessions. Handy for things like your gh config or SSH keys.
 
 **Exclusion**: A path inside a Project that's hidden from Sessions, e.g. `node_modules` or `build`.
 
@@ -71,6 +71,7 @@ The Session mounts:
 - the Project directory, at the same path inside the container
 - the Profile's Claude config folder, at `/claude`
 - the Profile's Mounts
+- the Project's Mounts (one at the same container path as a Profile Mount replaces it)
 - the Project's Exclusions, hidden as empty volumes (relative to the directory you started in)
 
 The first Session that uses a new Profile runs Claude Code's normal `/login` flow. The login is saved in that Profile, so you only log in once per Profile. Credentials are always mounted, never built into an Image.
@@ -163,6 +164,18 @@ safeagent project use-stack <name> [-p <path>]
 `project rm` only makes safeagent forget the Project. Nothing on disk is touched.
 
 `use-profile` and `use-stack` switch the Project's Profile or Stack. The new Image is built at the next Session if it doesn't exist yet.
+
+### Mounts
+
+```sh
+safeagent project mounts ls [-p <path>]                                # HOST PATH, CONTAINER PATH
+safeagent project mounts add [-p <path>] [--host <path>] [--container <path>]
+safeagent project mounts rm <container-path> [-p <path>]
+```
+
+These work like [Profile Mounts](#mounts), but only apply to Sessions in this Project. `mounts add` prompts for whichever of `--host` and `--container` you left out. The host path must exist. The container path must be absolute, can't be `/claude` or the Project's own path, and can't already be used by another of the Project's Mounts.
+
+A Project Mount at the same container path as one of the Profile's Mounts replaces it for this Project. `project inspect` shows the result.
 
 ### Exclusions
 

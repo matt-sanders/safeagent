@@ -13,7 +13,8 @@ import (
 	"safeagent/ident"
 )
 
-// Mount is a host path a Profile makes available inside every Session.
+// Mount is a host path a Profile or Project makes available inside its
+// Sessions.
 type Mount struct {
 	HostPath      string `json:"host_path"`
 	ContainerPath string `json:"container_path"`
@@ -172,20 +173,11 @@ func (s *Store) Remove(id string) error {
 // folder; no Mount may use it.
 const ClaudeMountPath = "/claude"
 
-// AddMount validates m and appends it to the Mounts of the Profile with the
-// given ID. The host path must exist; the container path must be absolute, not
-// /claude, and not already used by another of the Profile's Mounts. Paths are
-// cleaned; a relative host path is resolved against the process's working
-// directory, so callers with their own notion of cwd should pass it absolute.
-func (s *Store) AddMount(id string, m Mount) (Mount, error) {
-	profiles, err := s.List()
-	if err != nil {
-		return Mount{}, err
-	}
-	i := indexByID(profiles, id)
-	if i < 0 {
-		return Mount{}, fmt.Errorf("no profile with ID %q", id)
-	}
+// CleanMount validates m and returns it in canonical form. The host path must
+// exist; the container path must be absolute and not /claude. Paths are cleaned;
+// a relative host path is resolved against the process's working directory, so
+// callers with their own notion of cwd should pass it absolute.
+func CleanMount(m Mount) (Mount, error) {
 	if m.HostPath == "" {
 		return Mount{}, errors.New("host path is required")
 	}
@@ -203,12 +195,30 @@ func (s *Store) AddMount(id string, m Mount) (Mount, error) {
 	if target == ClaudeMountPath {
 		return Mount{}, fmt.Errorf("container path %s is reserved for the Profile's Claude config", ClaudeMountPath)
 	}
+	return Mount{HostPath: host, ContainerPath: target}, nil
+}
+
+// AddMount validates m (see CleanMount) and appends it to the Mounts of the
+// Profile with the given ID, rejecting a container path another of the
+// Profile's Mounts already uses.
+func (s *Store) AddMount(id string, m Mount) (Mount, error) {
+	profiles, err := s.List()
+	if err != nil {
+		return Mount{}, err
+	}
+	i := indexByID(profiles, id)
+	if i < 0 {
+		return Mount{}, fmt.Errorf("no profile with ID %q", id)
+	}
+	added, err := CleanMount(m)
+	if err != nil {
+		return Mount{}, err
+	}
 	for _, existing := range profiles[i].Mounts {
-		if existing.ContainerPath == target {
-			return Mount{}, fmt.Errorf("profile %q already has a mount at %s", profiles[i].Name, target)
+		if existing.ContainerPath == added.ContainerPath {
+			return Mount{}, fmt.Errorf("profile %q already has a mount at %s", profiles[i].Name, added.ContainerPath)
 		}
 	}
-	added := Mount{HostPath: host, ContainerPath: target}
 	profiles[i].Mounts = append(profiles[i].Mounts, added)
 	return added, s.save(profiles)
 }

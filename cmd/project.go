@@ -20,7 +20,7 @@ func newProjectCommand(deps Deps) *cobra.Command {
 	c.AddCommand(newProjectCreateCommand(deps), newProjectRmCommand(deps))
 	c.AddCommand(newProjectLsCommand(deps), newProjectInspectCommand(deps))
 	c.AddCommand(newProjectUseProfileCommand(deps), newProjectUseStackCommand(deps))
-	c.AddCommand(newProjectExclusionsCommand(deps))
+	c.AddCommand(newProjectExclusionsCommand(deps), newProjectMountsCommand(deps))
 	return c
 }
 
