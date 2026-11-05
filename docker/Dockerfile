@@ -5,7 +5,7 @@
 # See https://github.com/anthropics/claude-code/tree/main/.devcontainer
 # We've customised this somewhat to be more suitable to our environment
 
-FROM buildpack-deps:bookworm
+FROM buildpack-deps:trixie
 
 ENV CLAUDE_CONFIG_DIR=/claude
 ARG CLAUDE_CODE_VERSION=latest
